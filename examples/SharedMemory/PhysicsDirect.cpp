@@ -488,6 +488,68 @@ bool PhysicsDirect::processContactPointData(const struct SharedMemoryCommand& or
 }
 
 
+bool PhysicsDirect::processCastContactPointData(const struct SharedMemoryCommand& orgCommand)
+{
+    SharedMemoryCommand command = orgCommand;
+
+    const SharedMemoryStatus& serverCmd = m_data->m_serverStatus;
+
+    do
+    {
+        bool hasStatus = m_data->m_commandProcessor->processCommand(command,m_data->m_serverStatus,&m_data->m_bulletStreamDataServerToClient[0],SHARED_MEMORY_MAX_STREAM_CHUNK_SIZE);
+
+        b3Clock clock;
+        double startTime = clock.getTimeInSeconds();
+        double timeOutInSeconds = m_data->m_timeOutInSeconds;
+
+        while ((!hasStatus) && (clock.getTimeInSeconds()-startTime < timeOutInSeconds))
+        {
+            const  SharedMemoryStatus* stat = processServerStatus();
+            if (stat)
+            {
+                hasStatus = true;
+            }
+        }
+
+
+        m_data->m_hasStatus = hasStatus;
+        if (hasStatus)
+        {
+            if (m_data->m_verboseOutput)
+            {
+                b3Printf("Cast Contact Point Information Request OK\n");
+            }
+            int startContactIndex = serverCmd.m_sendContactPointArgs.m_startingContactPointIndex;
+            int numContactsCopied = serverCmd.m_sendContactPointArgs.m_numContactPointsCopied;
+
+            m_data->m_cachedContactPoints.resize(startContactIndex+numContactsCopied);
+
+            b3ContactPointData* contactData = (b3ContactPointData*)&m_data->m_bulletStreamDataServerToClient[0];
+
+            for (int i=0;i<numContactsCopied;i++)
+            {
+                m_data->m_cachedContactPoints[startContactIndex+i] = contactData[i];
+            }
+
+            if (serverCmd.m_sendContactPointArgs.m_numRemainingContactPoints>0 && serverCmd.m_sendContactPointArgs.m_numContactPointsCopied)
+            {
+
+                m_data->m_hasStatus = false;
+
+                command.m_type = CMD_REQUEST_CAST_CONTACT_POINT_INFORMATION;
+                command.m_requestCastContactPointArguments.m_startingContactPointIndex = serverCmd.m_sendCastContactPointArgs.m_startingContactPointIndex+serverCmd.m_sendCastContactPointArgs.m_numContactPointsCopied;
+                command.m_requestCastContactPointArguments.m_objectAIndexFilter = -1;
+                command.m_requestCastContactPointArguments.m_objectBIndexFilter = -1;
+
+            }
+
+        }
+    } while (serverCmd.m_sendCastContactPointArgs.m_numRemainingContactPoints > 0 && serverCmd.m_sendCastContactPointArgs.m_numContactPointsCopied);
+
+    return m_data->m_hasStatus;
+
+}
+
 bool PhysicsDirect::processCamera(const struct SharedMemoryCommand& orgCommand)
 {
 	SharedMemoryCommand command = orgCommand;
@@ -1078,6 +1140,10 @@ bool PhysicsDirect::submitClientCommand(const struct SharedMemoryCommand& comman
     if (command.m_type == CMD_REQUEST_CONTACT_POINT_INFORMATION)
     {
         return processContactPointData(command);
+    }
+    if (command.m_type == CMD_REQUEST_CAST_CONTACT_POINT_INFORMATION)
+    {
+        return processCastContactPointData(command);
     }
 
 	if (command.m_type == CMD_REQUEST_VISUAL_SHAPE_INFO)

@@ -46,6 +46,8 @@ struct PhysicsClientSharedMemoryInternalData {
 	btAlignedObjectArray<b3VisualShapeData> m_cachedVisualShapes;
 	btAlignedObjectArray<b3CollisionShapeData> m_cachedCollisionShapes;
 
+    btAlignedObjectArray<b3ContactPointData> m_cachedCastContactPoints;
+
 	btAlignedObjectArray<b3VRControllerEvent> m_cachedVREvents;
 	btAlignedObjectArray<b3KeyboardEvent> m_cachedKeyboardEvents;
 	btAlignedObjectArray<b3MouseEvent> m_cachedMouseEvents;
@@ -929,19 +931,19 @@ const SharedMemoryStatus* PhysicsClientSharedMemory::processServerStatus() {
 				break;
 			}
 
-				case CMD_REQUEST_RAY_CAST_INTERSECTIONS_COMPLETED:
-				{
-					if (m_data->m_verboseOutput)
-					{
-						b3Printf("Raycast completed");
-					}
-					m_data->m_raycastHits.clear();
-					for (int i=0;i<serverCmd.m_raycastHits.m_numRaycastHits;i++)
-					{
-						m_data->m_raycastHits.push_back(serverCmd.m_raycastHits.m_rayHits[i]);
-					}
-					break;
-				}
+            case CMD_REQUEST_RAY_CAST_INTERSECTIONS_COMPLETED:
+            {
+                if (m_data->m_verboseOutput)
+                {
+                    b3Printf("Raycast completed");
+                }
+                m_data->m_raycastHits.clear();
+                for (int i=0;i<serverCmd.m_raycastHits.m_numRaycastHits;i++)
+                {
+                    m_data->m_raycastHits.push_back(serverCmd.m_raycastHits.m_rayHits[i]);
+                }
+                break;
+            }
 
 			case CMD_REQUEST_VR_EVENTS_DATA_COMPLETED:
 			{
@@ -1029,13 +1031,39 @@ const SharedMemoryStatus* PhysicsClientSharedMemory::processServerStatus() {
 
                     break;
                 }
+            case CMD_CAST_CONTACT_POINT_INFORMATION_COMPLETED:
+                {
+                B3_PROFILE("CMD_CAST_CONTACT_POINT_INFORMATION_COMPLETED");
+                 if (m_data->m_verboseOutput)
+                    {
+                        b3Printf("Cast Contact Point Information Request OK\n");
+                    }
+                    int startContactIndex = serverCmd.m_sendCastContactPointArgs.m_startingContactPointIndex;
+                    int numContactsCopied = serverCmd.m_sendCastContactPointArgs.m_numContactPointsCopied;
+
+                    m_data->m_cachedCastContactPoints.resize(startContactIndex+numContactsCopied);
+
+                    b3ContactPointData* contactData = (b3ContactPointData*)m_data->m_testBlock1->m_bulletStreamDataServerToClientRefactor;
+
+                    for (int i=0;i<numContactsCopied;i++)
+                    {
+                        m_data->m_cachedCastContactPoints[startContactIndex+i] = contactData[i];
+                    }
+
+                    break;
+                }
             case CMD_CONTACT_POINT_INFORMATION_FAILED:
                 {
 				B3_PROFILE("CMD_CONTACT_POINT_INFORMATION_FAILED");
                  b3Warning("Contact Point Information Request failed");
                     break;
                 }
-
+            case CMD_CAST_CONTACT_POINT_INFORMATION_FAILED:
+                {
+                B3_PROFILE("CMD_CAST_CONTACT_POINT_INFORMATION_FAILED");
+                 b3Warning("Cast Contact Point Information Request failed");
+                    break;
+                }
 			case CMD_SAVE_WORLD_COMPLETED:
 			{
 			B3_PROFILE("CMD_SAVE_WORLD_COMPLETED");

@@ -20,6 +20,8 @@ protected:
 
     bool processContactPointData(const struct SharedMemoryCommand& orgCommand);
 
+    bool processCastContactPointData(const struct SharedMemoryCommand& orgCommand);
+
 	bool processOverlappingObjects(const struct SharedMemoryCommand& orgCommand);
 
 	bool processVisualShapeData(const struct SharedMemoryCommand& orgCommand);

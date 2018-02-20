@@ -9,6 +9,7 @@
 B3_DECLARE_HANDLE(b3PhysicsClientHandle);
 B3_DECLARE_HANDLE(b3SharedMemoryCommandHandle);
 B3_DECLARE_HANDLE(b3SharedMemoryStatusHandle);
+B3_DECLARE_HANDLE(CollisionHelperHandle);
 
 #ifdef _WIN32
 	#define B3_SHARED_API __declspec(dllexport)
@@ -236,20 +237,38 @@ B3_SHARED_API	void b3RequestCameraImageSetFOVProjectionMatrix(b3SharedMemoryComm
 
 ///request an contact point information
 B3_SHARED_API	b3SharedMemoryCommandHandle b3InitRequestContactPointInformation(b3PhysicsClientHandle physClient);
+B3_SHARED_API	b3SharedMemoryCommandHandle b3InitRequestCastContactPointInformation(b3PhysicsClientHandle physClient);
 B3_SHARED_API	void b3SetContactFilterBodyA(b3SharedMemoryCommandHandle commandHandle, int bodyUniqueIdA);
 B3_SHARED_API	void b3SetContactFilterBodyB(b3SharedMemoryCommandHandle commandHandle, int bodyUniqueIdB);
 B3_SHARED_API	void b3SetContactFilterLinkA(b3SharedMemoryCommandHandle commandHandle, int linkIndexA);
 B3_SHARED_API	void b3SetContactFilterLinkB(b3SharedMemoryCommandHandle commandHandle, int linkIndexB);
 B3_SHARED_API	void b3GetContactPointInformation(b3PhysicsClientHandle physClient, struct b3ContactInformation* contactPointData);
 
+B3_SHARED_API	void b3SetCastContactFilterBodyA(b3SharedMemoryCommandHandle commandHandle, int bodyUniqueIdA);
+B3_SHARED_API	void b3SetCastContactFilterBodyB(b3SharedMemoryCommandHandle commandHandle, int bodyUniqueIdB);
+B3_SHARED_API	void b3SetCastContactFilterLinkA(b3SharedMemoryCommandHandle commandHandle, int linkIndexA);
+B3_SHARED_API	void b3SetCastContactFilterLinkB(b3SharedMemoryCommandHandle commandHandle, int linkIndexB);
+B3_SHARED_API	void b3GetCastContactPointInformation(b3PhysicsClientHandle physClient, struct b3ContactInformation* contactPointData);
+
 ///compute the closest points between two bodies
 B3_SHARED_API	b3SharedMemoryCommandHandle b3InitClosestDistanceQuery(b3PhysicsClientHandle physClient);
+B3_SHARED_API	b3SharedMemoryCommandHandle b3InitCastClosestDistanceQuery(b3PhysicsClientHandle physClient);
 B3_SHARED_API	void b3SetClosestDistanceFilterBodyA(b3SharedMemoryCommandHandle commandHandle, int bodyUniqueIdA);
 B3_SHARED_API	void b3SetClosestDistanceFilterLinkA(b3SharedMemoryCommandHandle commandHandle, int linkIndexA);
 B3_SHARED_API	void b3SetClosestDistanceFilterBodyB(b3SharedMemoryCommandHandle commandHandle, int bodyUniqueIdB);
 B3_SHARED_API	void b3SetClosestDistanceFilterLinkB(b3SharedMemoryCommandHandle commandHandle, int linkIndexB);
 B3_SHARED_API	void b3SetClosestDistanceThreshold(b3SharedMemoryCommandHandle commandHandle, double distance);
 B3_SHARED_API	void b3GetClosestPointInformation(b3PhysicsClientHandle physClient, struct b3ContactInformation* contactPointInfo);
+
+B3_SHARED_API	void b3SetCastClosestDistanceFilterBodyA(b3SharedMemoryCommandHandle commandHandle, int bodyUniqueIdA);
+B3_SHARED_API	void b3SetCastClosestDistanceFilterLinkA(b3SharedMemoryCommandHandle commandHandle, int linkIndexA);
+B3_SHARED_API	void b3SetCastClosestDistanceFilterBodyB(b3SharedMemoryCommandHandle commandHandle, int bodyUniqueIdB);
+B3_SHARED_API	void b3SetCastClosestDistanceFilterLinkB(b3SharedMemoryCommandHandle commandHandle, int linkIndexB);
+B3_SHARED_API	void b3SetCastClosestDistanceThreshold(b3SharedMemoryCommandHandle commandHandle, double distance);
+B3_SHARED_API	void b3SetCastClosestPointsFromTo(b3SharedMemoryCommandHandle commandHandle, double bodyAFromWorldX,
+                                                  double bodyAFromWorldY, double bodyAFromWorldZ,
+                                                  double bodyAToWorldX, double bodyAToWorldY, double bodyAToWorldZ);
+
 
 ///get all the bodies that touch a given axis aligned bounding box specified in world space (min and max coordinates)
 B3_SHARED_API	b3SharedMemoryCommandHandle b3InitAABBOverlapQuery(b3PhysicsClientHandle physClient, const double aabbMin[/*3*/],const double aabbMax[/*3*/]);
@@ -260,7 +279,10 @@ B3_SHARED_API	b3SharedMemoryCommandHandle b3InitRequestVisualShapeInformation(b3
 B3_SHARED_API	void b3GetVisualShapeInformation(b3PhysicsClientHandle physClient, struct b3VisualShapeInformation* visualShapeInfo);
 
 B3_SHARED_API	b3SharedMemoryCommandHandle b3InitRequestCollisionShapeInformation(b3PhysicsClientHandle physClient, int bodyUniqueId, int linkIndex);
+B3_SHARED_API	b3SharedMemoryCommandHandle b3InitRequestCollisionCastInformation(b3PhysicsClientHandle physClient, int bodyUniqueId, int linkIndex);
+
 B3_SHARED_API	void b3GetCollisionShapeInformation(b3PhysicsClientHandle physClient, struct b3CollisionShapeInformation* collisionShapeInfo);
+B3_SHARED_API	void b3GetCollisionInformation(b3PhysicsClientHandle physClient, struct b3CollisionShapeInformation* collisionShapeInfo);
 
 
 

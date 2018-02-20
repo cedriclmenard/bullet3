@@ -83,6 +83,7 @@ enum EnumSharedMemoryClientCommand
 	CMD_SAVE_STATE,
 	CMD_RESTORE_STATE,
 	CMD_REQUEST_COLLISION_SHAPE_INFO,
+    CMD_REQUEST_CAST_CONTACT_POINT_INFORMATION,
     //don't go beyond this command!
     CMD_MAX_CLIENT_COMMANDS,
     
@@ -192,6 +193,8 @@ enum EnumSharedMemoryServerStatus
 		CMD_COLLISION_SHAPE_INFO_FAILED,
 		CMD_LOAD_SOFT_BODY_FAILED,
 		CMD_LOAD_SOFT_BODY_COMPLETED,
+        CMD_CAST_CONTACT_POINT_INFORMATION_COMPLETED,
+        CMD_CAST_CONTACT_POINT_INFORMATION_FAILED,
 		//don't go beyond 'CMD_MAX_SERVER_COMMANDS!
         CMD_MAX_SERVER_COMMANDS
 };
@@ -486,6 +489,10 @@ enum
 {
 	CONTACT_QUERY_MODE_REPORT_EXISTING_CONTACT_POINTS = 0,
 	CONTACT_QUERY_MODE_COMPUTE_CLOSEST_POINTS = 1,
+
+    CAST_CONTACT_QUERY_MODE_REPORT_EXISTING_CONTACT_POINTS = 0,
+    CAST_CONTACT_QUERY_MODE_COMPUTE_CLOSEST_POINTS = 1,
+
 };
 
 enum  b3StateLoggingType
@@ -558,6 +565,21 @@ struct b3CollisionShapeInformation
 	int m_numCollisionShapes;
 	struct b3CollisionShapeData* m_collisionShapeData;
 };
+
+struct b3CastContactPointData
+{
+//todo: expose some contact flags, such as telling which fields below are valid
+    int m_contactFlags;
+    int m_bodyUniqueIdA;
+    int m_bodyUniqueIdB;
+    int m_linkIndexA;
+    int m_linkIndexB;
+    double m_positionOnAInWS[3];//contact point location on object A, in world space coordinates
+    double m_positionOnBInWS[3];//contact point location on object B, in world space coordinates
+    double m_contactNormalOnBInWS[3];//the separating contact normal, pointing from object B towards object A
+    double m_contactDistance;//negative number is penetration, positive is distance.
+};
+
 
 enum eLinkStateFlags
 {

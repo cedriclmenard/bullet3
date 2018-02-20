@@ -1090,6 +1090,10 @@ void	PhysicsClientExample::stepSimulation(float deltaTime)
 			{
 				b3Warning("Cannot get contact information");
 			}
+            if (statusType == CMD_CAST_CONTACT_POINT_INFORMATION_FAILED)
+            {
+                b3Warning("Cannot get cast contact information");
+            }
 			if (statusType == CMD_VISUAL_SHAPE_INFO_FAILED)
 			{
 				b3Warning("Cannot get visual shape information");

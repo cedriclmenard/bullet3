@@ -261,10 +261,16 @@ enum EnumRequestPixelDataUpdateFlags
 
 enum EnumRequestContactDataUpdateFlags
 {
-	CMD_REQUEST_CONTACT_POINT_HAS_QUERY_MODE=1,
-	CMD_REQUEST_CONTACT_POINT_HAS_CLOSEST_DISTANCE_THRESHOLD=2,
+    CMD_REQUEST_CONTACT_POINT_HAS_QUERY_MODE = 1,
+    CMD_REQUEST_CONTACT_POINT_HAS_CLOSEST_DISTANCE_THRESHOLD = 2,
 	CMD_REQUEST_CONTACT_POINT_HAS_LINK_INDEX_A_FILTER = 4,
 	CMD_REQUEST_CONTACT_POINT_HAS_LINK_INDEX_B_FILTER = 8,
+
+    CMD_REQUEST_CAST_CONTACT_POINT_HAS_QUERY_MODE = 1,
+    CMD_REQUEST_CAST_CONTACT_POINT_HAS_CLOSEST_DISTANCE_THRESHOLD = 2,
+    CMD_REQUEST_CAST_CONTACT_POINT_HAS_LINK_INDEX_A_FILTER = 4,
+    CMD_REQUEST_CAST_CONTACT_POINT_HAS_LINK_INDEX_B_FILTER = 8,
+
 };
 
 struct RequestRaycastIntersections
@@ -289,6 +295,21 @@ struct RequestContactDataArgs
 	int m_linkIndexBIndexFilter;
 	double m_closestDistanceThreshold;
 	int m_mode;
+};
+
+#define MAX_RAY_INTERSECTION_BATCH_SIZE 256
+struct RequestCastContactDataArgs
+{
+    int m_startingContactPointIndex;
+    int m_objectAIndexFilter;
+    int m_objectBIndexFilter;
+    int m_linkIndexAIndexFilter;
+    int m_linkIndexBIndexFilter;
+    double m_closestDistanceThreshold;
+    int m_mode;
+    double m_bodyAfromPositions[MAX_RAY_INTERSECTION_BATCH_SIZE][3];
+    double m_bodyAtoPositions[MAX_RAY_INTERSECTION_BATCH_SIZE][3];
+
 };
 
 struct RequestOverlappingObjectsArgs
@@ -994,6 +1015,7 @@ struct SharedMemoryCommand
         struct CalculateMassMatrixArgs m_calculateMassMatrixArguments;
         struct b3UserConstraint m_userConstraintArguments;
         struct RequestContactDataArgs m_requestContactPointArguments;
+        struct RequestCastContactDataArgs m_requestCastContactPointArguments;
 		struct RequestOverlappingObjectsArgs m_requestOverlappingObjectsArgs;
         struct RequestVisualShapeDataArgs m_requestVisualShapeDataArguments;
         struct UpdateVisualShapeDataArgs m_updateVisualShapeDataArguments;
@@ -1069,6 +1091,7 @@ struct SharedMemoryStatus
         struct CalculateJacobianResultArgs m_jacobianResultArgs;
         struct CalculateMassMatrixResultArgs m_massMatrixResultArgs;
 		struct SendContactDataArgs m_sendContactPointArgs;
+        struct SendContactDataArgs m_sendCastContactPointArgs;
 		struct SendOverlappingObjectsArgs m_sendOverlappingObjectsArgs;
 		struct CalculateInverseKinematicsResultArgs m_inverseKinematicsResultArgs;
 		struct SendVisualShapeDataArgs m_sendVisualShapeArgs;

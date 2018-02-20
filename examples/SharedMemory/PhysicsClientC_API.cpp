@@ -3336,12 +3336,43 @@ B3_SHARED_API	b3SharedMemoryCommandHandle b3InitRequestContactPointInformation(b
     return (b3SharedMemoryCommandHandle) command;
 }
 
+///request an cast contact point information
+B3_SHARED_API	b3SharedMemoryCommandHandle b3InitRequestCastContactPointInformation(b3PhysicsClientHandle physClient)
+{
+    PhysicsClient* cl = (PhysicsClient* ) physClient;
+    b3Assert(cl);
+    b3Assert(cl->canSubmitCommand());
+    struct SharedMemoryCommand* command = cl->getAvailableSharedMemoryCommand();
+    b3Assert(command);
+    command->m_type =CMD_REQUEST_CAST_CONTACT_POINT_INFORMATION;
+    command->m_requestCastContactPointArguments.m_startingContactPointIndex = 0;
+    command->m_requestCastContactPointArguments.m_objectAIndexFilter = -1;
+    command->m_requestCastContactPointArguments.m_objectBIndexFilter = -1;
+    command->m_requestCastContactPointArguments.m_linkIndexAIndexFilter = -2;
+    command->m_requestCastContactPointArguments.m_linkIndexBIndexFilter = -2;
+    command->m_requestCastContactPointArguments.m_bodyAfromPositions[0][0] = 0;
+    command->m_requestCastContactPointArguments.m_bodyAfromPositions[0][1] = 0;
+    command->m_requestCastContactPointArguments.m_bodyAfromPositions[0][2] = 0;
+    command->m_requestCastContactPointArguments.m_bodyAtoPositions[0][0] = 0;
+    command->m_requestCastContactPointArguments.m_bodyAtoPositions[0][1] = 0;
+    command->m_requestCastContactPointArguments.m_bodyAtoPositions[0][2] = 0;
+    command->m_updateFlags = 0;
+    return (b3SharedMemoryCommandHandle) command;
+}
 B3_SHARED_API void b3SetContactFilterBodyA(b3SharedMemoryCommandHandle commandHandle, int bodyUniqueIdA)
 {
 	struct SharedMemoryCommand* command = (struct SharedMemoryCommand*) commandHandle;
     b3Assert(command);
     b3Assert(command->m_type == CMD_REQUEST_CONTACT_POINT_INFORMATION);
 	command->m_requestContactPointArguments.m_objectAIndexFilter = bodyUniqueIdA;
+}
+
+B3_SHARED_API void b3SetCastContactFilterBodyA(b3SharedMemoryCommandHandle commandHandle, int bodyUniqueIdA)
+{
+    struct SharedMemoryCommand* command = (struct SharedMemoryCommand*) commandHandle;
+    b3Assert(command);
+    b3Assert(command->m_type == CMD_REQUEST_CAST_CONTACT_POINT_INFORMATION);
+    command->m_requestCastContactPointArguments.m_objectAIndexFilter = bodyUniqueIdA;
 }
 
 B3_SHARED_API void b3SetContactFilterLinkA(b3SharedMemoryCommandHandle commandHandle, int linkIndexA)
@@ -3362,6 +3393,24 @@ B3_SHARED_API void b3SetContactFilterLinkB(b3SharedMemoryCommandHandle commandHa
 	command->m_requestContactPointArguments.m_linkIndexBIndexFilter = linkIndexB;
 }
 
+B3_SHARED_API void b3SetCastContactFilterLinkA(b3SharedMemoryCommandHandle commandHandle, int linkIndexA)
+{
+    struct SharedMemoryCommand* command = (struct SharedMemoryCommand*) commandHandle;
+    b3Assert(command);
+    b3Assert(command->m_type == CMD_REQUEST_CAST_CONTACT_POINT_INFORMATION);
+    command->m_updateFlags |= CMD_REQUEST_CAST_CONTACT_POINT_HAS_LINK_INDEX_A_FILTER;
+    command->m_requestCastContactPointArguments.m_linkIndexAIndexFilter= linkIndexA;
+}
+
+B3_SHARED_API void b3SetCastContactFilterLinkB(b3SharedMemoryCommandHandle commandHandle, int linkIndexB)
+{
+    struct SharedMemoryCommand* command = (struct SharedMemoryCommand*) commandHandle;
+    b3Assert(command);
+    b3Assert(command->m_type == CMD_REQUEST_CAST_CONTACT_POINT_INFORMATION);
+    command->m_updateFlags |= CMD_REQUEST_CAST_CONTACT_POINT_HAS_LINK_INDEX_B_FILTER;
+    command->m_requestCastContactPointArguments.m_linkIndexBIndexFilter = linkIndexB;
+}
+
 B3_SHARED_API void b3SetClosestDistanceFilterLinkA(b3SharedMemoryCommandHandle commandHandle, int linkIndexA)
 {
 	b3SetContactFilterLinkA(commandHandle, linkIndexA);
@@ -3372,6 +3421,15 @@ B3_SHARED_API void b3SetClosestDistanceFilterLinkB(b3SharedMemoryCommandHandle c
 	b3SetContactFilterLinkB(commandHandle, linkIndexB);
 }
 
+B3_SHARED_API void b3SetCastClosestDistanceFilterLinkA(b3SharedMemoryCommandHandle commandHandle, int linkIndexA)
+{
+    b3SetCastContactFilterLinkA(commandHandle, linkIndexA);
+}
+
+B3_SHARED_API void b3SetCastClosestDistanceFilterLinkB(b3SharedMemoryCommandHandle commandHandle, int linkIndexB)
+{
+    b3SetCastContactFilterLinkB(commandHandle, linkIndexB);
+}
 
 
 
@@ -3383,6 +3441,13 @@ B3_SHARED_API void b3SetContactFilterBodyB(b3SharedMemoryCommandHandle commandHa
 	command->m_requestContactPointArguments.m_objectBIndexFilter = bodyUniqueIdB;
 }
 
+B3_SHARED_API void b3SetCastContactFilterBodyB(b3SharedMemoryCommandHandle commandHandle, int bodyUniqueIdB)
+{
+    struct SharedMemoryCommand* command = (struct SharedMemoryCommand*) commandHandle;
+    b3Assert(command);
+    b3Assert(command->m_type == CMD_REQUEST_CAST_CONTACT_POINT_INFORMATION);
+    command->m_requestCastContactPointArguments.m_objectBIndexFilter = bodyUniqueIdB;
+}
 
 ///compute the closest points between two bodies
 B3_SHARED_API	b3SharedMemoryCommandHandle b3InitClosestDistanceQuery(b3PhysicsClientHandle physClient)
@@ -3395,7 +3460,17 @@ B3_SHARED_API	b3SharedMemoryCommandHandle b3InitClosestDistanceQuery(b3PhysicsCl
 	command->m_requestContactPointArguments.m_mode = CONTACT_QUERY_MODE_COMPUTE_CLOSEST_POINTS;
 	return commandHandle;
 }
-
+///compute the closest points between two bodies, when body A is moving
+B3_SHARED_API	b3SharedMemoryCommandHandle b3InitCastClosestDistanceQuery(b3PhysicsClientHandle physClient)
+{
+    b3SharedMemoryCommandHandle commandHandle =b3InitRequestCastContactPointInformation(physClient);
+    struct SharedMemoryCommand* command = (struct SharedMemoryCommand*) commandHandle;
+    b3Assert(command);
+    b3Assert(command->m_type == CMD_REQUEST_CAST_CONTACT_POINT_INFORMATION);
+    command->m_updateFlags = CMD_REQUEST_CAST_CONTACT_POINT_HAS_QUERY_MODE;
+    command->m_requestCastContactPointArguments.m_mode = CAST_CONTACT_QUERY_MODE_COMPUTE_CLOSEST_POINTS;
+    return commandHandle;
+}
 B3_SHARED_API void b3SetClosestDistanceFilterBodyA(b3SharedMemoryCommandHandle commandHandle, int bodyUniqueIdA)
 {
 	b3SetContactFilterBodyA(commandHandle,bodyUniqueIdA);
@@ -3415,6 +3490,41 @@ B3_SHARED_API void b3SetClosestDistanceThreshold(b3SharedMemoryCommandHandle com
 	command->m_requestContactPointArguments.m_closestDistanceThreshold = distance;
 }
 
+
+B3_SHARED_API void b3SetCastClosestDistanceFilterBodyA(b3SharedMemoryCommandHandle commandHandle, int bodyUniqueIdA)
+{
+    b3SetCastContactFilterBodyA(commandHandle,bodyUniqueIdA);
+}
+
+B3_SHARED_API void b3SetCastClosestDistanceFilterBodyB(b3SharedMemoryCommandHandle commandHandle, int bodyUniqueIdB)
+{
+    b3SetCastContactFilterBodyB(commandHandle,bodyUniqueIdB);
+}
+
+B3_SHARED_API void b3SetCastClosestDistanceThreshold(b3SharedMemoryCommandHandle commandHandle, double distance)
+{
+    struct SharedMemoryCommand* command = (struct SharedMemoryCommand*) commandHandle;
+    b3Assert(command);
+    b3Assert(command->m_type == CMD_REQUEST_CAST_CONTACT_POINT_INFORMATION);
+    command->m_updateFlags += CMD_REQUEST_CAST_CONTACT_POINT_HAS_CLOSEST_DISTANCE_THRESHOLD;
+    command->m_requestCastContactPointArguments.m_closestDistanceThreshold = distance;
+}
+
+B3_SHARED_API void b3SetCastClosestPointsFromTo(b3SharedMemoryCommandHandle commandHandle, double bodyAFromWorldX,
+                                   double bodyAFromWorldY, double bodyAFromWorldZ,
+                                   double bodyAToWorldX, double bodyAToWorldY, double bodyAToWorldZ)
+{
+    struct SharedMemoryCommand* command = (struct SharedMemoryCommand*) commandHandle;
+    b3Assert(command);
+    b3Assert(command->m_type == CMD_REQUEST_CAST_CONTACT_POINT_INFORMATION);
+    command->m_requestCastContactPointArguments.m_bodyAfromPositions[0][0] = bodyAFromWorldX;
+    command->m_requestCastContactPointArguments.m_bodyAfromPositions[0][1] = bodyAFromWorldY;
+    command->m_requestCastContactPointArguments.m_bodyAfromPositions[0][2] = bodyAFromWorldZ;
+
+    command->m_requestCastContactPointArguments.m_bodyAtoPositions[0][0] = bodyAToWorldX;
+    command->m_requestCastContactPointArguments.m_bodyAtoPositions[0][1] = bodyAToWorldY;
+    command->m_requestCastContactPointArguments.m_bodyAtoPositions[0][2] = bodyAToWorldZ;
+}
 
 ///get all the bodies that touch a given axis aligned bounding box specified in world space (min and max coordinates)
 B3_SHARED_API	b3SharedMemoryCommandHandle b3InitAABBOverlapQuery(b3PhysicsClientHandle physClient, const double aabbMin[3], const double aabbMax[3])
@@ -3476,6 +3586,21 @@ B3_SHARED_API	b3SharedMemoryCommandHandle b3InitRequestCollisionShapeInformation
 
 	command->m_updateFlags = 0;
 	return (b3SharedMemoryCommandHandle)command;
+}
+
+B3_SHARED_API	b3SharedMemoryCommandHandle b3InitRequestCollisionCastInformation(b3PhysicsClientHandle physClient, int bodyUniqueId, int linkIndex)
+{
+    PhysicsClient* cl = (PhysicsClient*)physClient;
+    b3Assert(cl);
+    b3Assert(cl->canSubmitCommand());
+    struct SharedMemoryCommand* command = cl->getAvailableSharedMemoryCommand();
+    b3Assert(command);
+    command->m_type = CMD_REQUEST_CAST_CONTACT_POINT_INFORMATION;
+    command->m_requestCollisionShapeDataArguments.m_bodyUniqueId = bodyUniqueId;
+    command->m_requestCollisionShapeDataArguments.m_linkIndex = linkIndex;
+
+    command->m_updateFlags = 0;
+    return (b3SharedMemoryCommandHandle)command;
 }
 B3_SHARED_API	void b3GetCollisionShapeInformation(b3PhysicsClientHandle physClient, struct b3CollisionShapeInformation* collisionShapeInfo)
 {
