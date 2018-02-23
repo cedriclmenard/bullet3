@@ -1115,6 +1115,13 @@ void	PhysicsClientExample::stepSimulation(float deltaTime)
 				b3Printf("Num Contacts: %d\n", contactPointData.m_numContactPoints);
 
 			}
+            if (statusType == CMD_CONTACT_POINT_INFORMATION_COMPLETED)
+            {
+                b3ContactInformation contactPointData;
+                b3GetContactPointInformation(m_physicsClientHandle, &contactPointData);
+                b3Printf("Num Contacts: %d\n", contactPointData.m_numContactPoints);
+
+            }
 		}
 	}
     if (b3CanSubmitCommand(m_physicsClientHandle))

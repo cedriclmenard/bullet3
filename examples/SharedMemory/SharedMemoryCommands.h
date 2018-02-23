@@ -267,6 +267,14 @@ enum EnumRequestContactDataUpdateFlags
 	CMD_REQUEST_CONTACT_POINT_HAS_LINK_INDEX_B_FILTER = 8,
 };
 
+enum EnumRequestConvexSweepContactDataUpdateFlags
+{
+    CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_QUERY_MODE=1,
+    CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_CLOSEST_DISTANCE_THRESHOLD=2,
+    CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_LINK_INDEX_A_FILTER = 4,
+    CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_LINK_INDEX_B_FILTER = 8,
+};
+
 struct RequestRaycastIntersections
 {
 	int m_numRays;
@@ -289,6 +297,22 @@ struct RequestContactDataArgs
 	int m_linkIndexBIndexFilter;
 	double m_closestDistanceThreshold;
 	int m_mode;
+};
+
+#define MAX_CONVEX_SWEEP_CONTACT_BATCH_SIZE 256
+struct RequestConvexSweepContactDataArgs
+{
+    int m_startingContactPointIndex;
+    int m_objectAIndexFilter;
+    int m_objectBIndexFilter;
+    int m_linkIndexAIndexFilter;
+    int m_linkIndexBIndexFilter;
+    double m_closestDistanceThreshold;
+    int m_mode;
+    double m_bodyAfromPosition[MAX_CONVEX_SWEEP_CONTACT_BATCH_SIZE][3];
+    double m_bodyAfromOrientation[MAX_CONVEX_SWEEP_CONTACT_BATCH_SIZE][4];
+    double m_bodyAtoPosition[MAX_CONVEX_SWEEP_CONTACT_BATCH_SIZE][3];
+    double m_bodyAtoOrientation[MAX_CONVEX_SWEEP_CONTACT_BATCH_SIZE][4];
 };
 
 struct RequestOverlappingObjectsArgs
@@ -994,6 +1018,7 @@ struct SharedMemoryCommand
         struct CalculateMassMatrixArgs m_calculateMassMatrixArguments;
         struct b3UserConstraint m_userConstraintArguments;
         struct RequestContactDataArgs m_requestContactPointArguments;
+        struct RequestConvexSweepContactDataArgs m_requestConvexSweepContactPointArguments;
 		struct RequestOverlappingObjectsArgs m_requestOverlappingObjectsArgs;
         struct RequestVisualShapeDataArgs m_requestVisualShapeDataArguments;
         struct UpdateVisualShapeDataArgs m_updateVisualShapeDataArguments;
@@ -1024,6 +1049,13 @@ struct RigidBodyCreateArgs
 };
 
 struct SendContactDataArgs
+{
+    int m_startingContactPointIndex;
+    int m_numContactPointsCopied;
+    int m_numRemainingContactPoints;
+};
+
+struct SendConvexSweepContactDataArgs
 {
     int m_startingContactPointIndex;
     int m_numContactPointsCopied;
@@ -1092,6 +1124,7 @@ struct SharedMemoryStatus
 		struct b3StateSerializationArguments m_saveStateResultArgs;
 		struct b3LoadSoftBodyResultArgs m_loadSoftBodyResultArguments;
 		struct SendCollisionShapeDataArgs m_sendCollisionShapeArgs;
+        struct SendConvexSweepContactDataArgs m_sendConvexSweepContactPointArgs;
 	};
 };
 

@@ -175,6 +175,11 @@ void PhysicsLoopBack::getCachedContactPointInformation(struct b3ContactInformati
     return m_data->m_physicsClient->getCachedContactPointInformation(contactPointData);
 }
 
+void PhysicsLoopBack::getCachedConvexSweepContactPointInformation(struct b3ConvexSweepContactInformation* contactPointData)
+{
+    return m_data->m_physicsClient->getCachedConvexSweepContactPointInformation(contactPointData);
+}
+
 void PhysicsLoopBack::getCachedVisualShapeInformation(struct b3VisualShapeInformation* visualShapesInfo)
 {
 	return m_data->m_physicsClient->getCachedVisualShapeInformation(visualShapesInfo);

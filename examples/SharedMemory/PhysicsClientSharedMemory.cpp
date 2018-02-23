@@ -42,6 +42,7 @@ struct PhysicsClientSharedMemoryInternalData {
 	btAlignedObjectArray<int> m_cachedSegmentationMaskBuffer;
 
     btAlignedObjectArray<b3ContactPointData> m_cachedContactPoints;
+    btAlignedObjectArray<b3ConvexSweepContactPointData> m_cachedConvexSweepContactPoints;
 	btAlignedObjectArray<b3OverlappingObject> m_cachedOverlappingObjects;
 	btAlignedObjectArray<b3VisualShapeData> m_cachedVisualShapes;
 	btAlignedObjectArray<b3CollisionShapeData> m_cachedCollisionShapes;
@@ -1029,10 +1030,37 @@ const SharedMemoryStatus* PhysicsClientSharedMemory::processServerStatus() {
 
                     break;
                 }
+            case CMD_CONVEX_SWEEP_CONTACT_POINT_INFORMATION_COMPLETED:
+                {
+                B3_PROFILE("CMD_CONVEX_SWEEP_CONTACT_POINT_INFORMATION_COMPLETED");
+                 if (m_data->m_verboseOutput)
+                    {
+                        b3Printf("Convex Sweep Contact Point Information Request OK\n");
+                    }
+                    int startContactIndex = serverCmd.m_sendConvexSweepContactPointArgs.m_startingContactPointIndex;
+                    int numContactsCopied = serverCmd.m_sendConvexSweepContactPointArgs.m_numContactPointsCopied;
+
+                    m_data->m_cachedConvexSweepContactPoints.resize(startContactIndex+numContactsCopied);
+
+                    b3ConvexSweepContactPointData* contactData = (b3ConvexSweepContactPointData*)m_data->m_testBlock1->m_bulletStreamDataServerToClientRefactor;
+
+                    for (int i=0;i<numContactsCopied;i++)
+                    {
+                        m_data->m_cachedConvexSweepContactPoints[startContactIndex+i] = contactData[i];
+                    }
+
+                    break;
+                }
             case CMD_CONTACT_POINT_INFORMATION_FAILED:
                 {
 				B3_PROFILE("CMD_CONTACT_POINT_INFORMATION_FAILED");
                  b3Warning("Contact Point Information Request failed");
+                    break;
+                }
+            case CMD_CONVEX_SWEEP_CONTACT_POINT_INFORMATION_FAILED:
+                {
+                B3_PROFILE("CMD_CONVEX_SWEEP_CONTACT_POINT_INFORMATION_FAILED");
+                 b3Warning("Convex Sweep Contact Point Information Request failed");
                     break;
                 }
 
@@ -1567,6 +1595,13 @@ void PhysicsClientSharedMemory::getCachedContactPointInformation(struct b3Contac
 {
 	contactPointData->m_numContactPoints = m_data->m_cachedContactPoints.size();
 	contactPointData->m_contactPointData = contactPointData->m_numContactPoints? &m_data->m_cachedContactPoints[0] : 0;
+
+}
+
+void PhysicsClientSharedMemory::getCachedConvexSweepContactPointInformation(struct b3ConvexSweepContactInformation* contactPointData)
+{
+    contactPointData->m_numContactPoints = m_data->m_cachedConvexSweepContactPoints.size();
+    contactPointData->m_contactPointData = contactPointData->m_numContactPoints? &m_data->m_cachedConvexSweepContactPoints[0] : 0;
 
 }
 

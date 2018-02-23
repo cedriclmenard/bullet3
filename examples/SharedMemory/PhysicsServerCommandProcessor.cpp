@@ -1545,6 +1545,8 @@ struct PhysicsServerCommandProcessorInternalData
 	SharedMemoryDebugDrawer*		m_remoteDebugDrawer;
     
 	btAlignedObjectArray<b3ContactPointData> m_cachedContactPoints;
+    btAlignedObjectArray<b3ConvexSweepContactPointData> m_cachedConvexSweepContactPoints;
+
 	MyBroadphaseCallback m_cachedOverlappingObjects;
 
 
@@ -5617,6 +5619,369 @@ bool PhysicsServerCommandProcessor::processRequestContactpointInformationCommand
 	return hasStatus;
 }
 
+bool PhysicsServerCommandProcessor::processRequestConvexSweepContactpointInformationCommand(const struct SharedMemoryCommand& clientCmd, struct SharedMemoryStatus& serverStatusOut, char* bufferServerToClient, int bufferSizeInBytes)
+{
+    bool hasStatus = true;
+    BT_PROFILE("CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_INFORMATION");
+    SharedMemoryStatus& serverCmd =serverStatusOut;
+    serverCmd.m_sendConvexSweepContactPointArgs.m_numContactPointsCopied = 0;
+
+    //make a snapshot of the contact manifolds into individual contact points
+    if (clientCmd.m_requestConvexSweepContactPointArguments.m_startingContactPointIndex == 0)
+    {
+        m_data->m_cachedConvexSweepContactPoints.resize(0);
+
+        int mode = CONVEX_SWEEP_CONTACT_QUERY_MODE_REPORT_EXISTING_CONTACT_POINTS;
+
+        if (clientCmd.m_updateFlags & CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_QUERY_MODE)
+        {
+            mode = clientCmd.m_requestConvexSweepContactPointArguments.m_mode;
+        }
+
+        switch (mode)
+        {
+        case CONVEX_SWEEP_CONTACT_QUERY_MODE_REPORT_EXISTING_CONTACT_POINTS:
+        {
+            int numContactManifolds = m_data->m_dynamicsWorld->getDispatcher()->getNumManifolds();
+            m_data->m_cachedConvexSweepContactPoints.reserve(numContactManifolds * 4);
+            for (int i = 0; i < numContactManifolds; i++)
+            {
+                const btPersistentManifold* manifold = m_data->m_dynamicsWorld->getDispatcher()->getInternalManifoldPointer()[i];
+                int linkIndexA = -1;
+                int linkIndexB = -1;
+
+                int objectIndexB = -1;
+                const btRigidBody* bodyB = btRigidBody::upcast(manifold->getBody1());
+                if (bodyB)
+                {
+                    objectIndexB = bodyB->getUserIndex2();
+                }
+                const btMultiBodyLinkCollider* mblB = btMultiBodyLinkCollider::upcast(manifold->getBody1());
+                if (mblB && mblB->m_multiBody)
+                {
+                    linkIndexB = mblB->m_link;
+                    objectIndexB = mblB->m_multiBody->getUserIndex2();
+                }
+
+                int objectIndexA = -1;
+                const btRigidBody* bodyA = btRigidBody::upcast(manifold->getBody0());
+                if (bodyA)
+                {
+                    objectIndexA = bodyA->getUserIndex2();
+                }
+                const btMultiBodyLinkCollider* mblA = btMultiBodyLinkCollider::upcast(manifold->getBody0());
+                if (mblA && mblA->m_multiBody)
+                {
+                    linkIndexA = mblA->m_link;
+                    objectIndexA = mblA->m_multiBody->getUserIndex2();
+                }
+                btAssert(bodyA || mblA);
+
+                //apply the filter, if the user provides it
+                bool swap = false;
+                if (clientCmd.m_requestConvexSweepContactPointArguments.m_objectAIndexFilter >= 0)
+                {
+                    if (clientCmd.m_requestConvexSweepContactPointArguments.m_objectAIndexFilter == objectIndexA)
+                    {
+                        swap = false;
+                    }
+                    else if (clientCmd.m_requestConvexSweepContactPointArguments.m_objectAIndexFilter == objectIndexB)
+                    {
+                        swap = true;
+                    }
+                    else
+                    {
+                        continue;
+                    }
+                }
+
+                if (swap)
+                {
+                    std::swap(objectIndexA, objectIndexB);
+                    std::swap(linkIndexA, linkIndexB);
+                    std::swap(bodyA, bodyB);
+                }
+
+                //apply the second object filter, if the user provides it
+                if (clientCmd.m_requestConvexSweepContactPointArguments.m_objectBIndexFilter >= 0)
+                {
+                    if (clientCmd.m_requestConvexSweepContactPointArguments.m_objectBIndexFilter != objectIndexB)
+                    {
+                        continue;
+                    }
+                }
+
+                if (
+                    (clientCmd.m_updateFlags & CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_LINK_INDEX_A_FILTER) &&
+                    clientCmd.m_requestConvexSweepContactPointArguments.m_linkIndexAIndexFilter != linkIndexA)
+                {
+                    continue;
+                }
+
+                if (
+                    (clientCmd.m_updateFlags & CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_LINK_INDEX_B_FILTER) &&
+                    clientCmd.m_requestConvexSweepContactPointArguments.m_linkIndexBIndexFilter != linkIndexB)
+                {
+                    continue;
+                }
+
+                for (int p = 0; p < manifold->getNumContacts(); p++)
+                {
+
+                    b3ConvexSweepContactPointData pt;
+                    pt.m_bodyUniqueIdA = objectIndexA;
+                    pt.m_bodyUniqueIdB = objectIndexB;
+                    const btManifoldPoint& srcPt = manifold->getContactPoint(p);
+                    pt.m_contactDistance = srcPt.getDistance();
+                    pt.m_contactFlags = 0;
+                    pt.m_linkIndexA = linkIndexA;
+                    pt.m_linkIndexB = linkIndexB;
+                    for (int j = 0; j < 3; j++)
+                    {
+                        pt.m_contactNormalOnBInWS[j] = srcPt.m_normalWorldOnB[j];
+                        pt.m_positionOnAInWS[j] = srcPt.getPositionWorldOnA()[j];
+                        pt.m_positionOnBInWS[j] = srcPt.getPositionWorldOnB()[j];
+                    }
+                    pt.m_normalForce = srcPt.getAppliedImpulse() / m_data->m_physicsDeltaTime;
+                    pt.m_sweepContactFraction = 1;
+
+                    //                                    pt.m_linearFrictionForce = srcPt.m_appliedImpulseLateral1;
+                    m_data->m_cachedConvexSweepContactPoints.push_back(pt);
+                }
+            }
+            break;
+        }
+
+        case CONVEX_SWEEP_CONTACT_QUERY_MODE_COMPUTE_CLOSEST_POINTS:
+        {
+            //todo(erwincoumans) compute closest points between all, and vs all, pair
+            btScalar closestDistanceThreshold = 0.f;
+
+            if (clientCmd.m_updateFlags & CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_CLOSEST_DISTANCE_THRESHOLD)
+            {
+                closestDistanceThreshold = clientCmd.m_requestConvexSweepContactPointArguments.m_closestDistanceThreshold;
+            }
+
+            int bodyUniqueIdA = clientCmd.m_requestConvexSweepContactPointArguments.m_objectAIndexFilter;
+            int bodyUniqueIdB = clientCmd.m_requestConvexSweepContactPointArguments.m_objectBIndexFilter;
+
+            bool hasLinkIndexAFilter = (0!=(clientCmd.m_updateFlags & CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_LINK_INDEX_A_FILTER));
+            bool hasLinkIndexBFilter = (0!=(clientCmd.m_updateFlags & CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_LINK_INDEX_B_FILTER));
+
+            int linkIndexA  = clientCmd.m_requestConvexSweepContactPointArguments.m_linkIndexAIndexFilter;
+            int linkIndexB = clientCmd.m_requestConvexSweepContactPointArguments.m_linkIndexBIndexFilter;
+
+            btAlignedObjectArray<btCollisionObject*> setA;
+            btAlignedObjectArray<btCollisionObject*> setB;
+            btAlignedObjectArray<int> setALinkIndex;
+            btAlignedObjectArray<int> setBLinkIndex;
+
+            if (bodyUniqueIdA >= 0)
+            {
+                InternalBodyData* bodyA = m_data->m_bodyHandles.getHandle(bodyUniqueIdA);
+                if (bodyA)
+                {
+                    if (bodyA->m_multiBody)
+                    {
+                        if (bodyA->m_multiBody->getBaseCollider())
+                        {
+                            if (!hasLinkIndexAFilter || (linkIndexA == -1))
+                            {
+                                setA.push_back(bodyA->m_multiBody->getBaseCollider());
+                                setALinkIndex.push_back(-1);
+                            }
+                        }
+                        for (int i = 0; i < bodyA->m_multiBody->getNumLinks(); i++)
+                        {
+                            if (bodyA->m_multiBody->getLink(i).m_collider)
+                            {
+                                if (!hasLinkIndexAFilter || (linkIndexA == i))
+                                {
+                                    setA.push_back(bodyA->m_multiBody->getLink(i).m_collider);
+                                    setALinkIndex.push_back(i);
+                                }
+                            }
+                        }
+                    }
+                    if (bodyA->m_rigidBody)
+                    {
+                        setA.push_back(bodyA->m_rigidBody);
+                        setALinkIndex.push_back(-1);
+                    }
+                }
+            }
+            if (bodyUniqueIdB>=0)
+            {
+                InternalBodyData* bodyB = m_data->m_bodyHandles.getHandle(bodyUniqueIdB);
+                if (bodyB)
+                {
+                    if (bodyB->m_multiBody)
+                    {
+                        if (bodyB->m_multiBody->getBaseCollider())
+                        {
+                            if (!hasLinkIndexBFilter || (linkIndexB == -1))
+                            {
+                                setB.push_back(bodyB->m_multiBody->getBaseCollider());
+                                setBLinkIndex.push_back(-1);
+                            }
+                        }
+                        for (int i = 0; i < bodyB->m_multiBody->getNumLinks(); i++)
+                        {
+                            if (bodyB->m_multiBody->getLink(i).m_collider)
+                            {
+                                if (!hasLinkIndexBFilter || (linkIndexB ==i))
+                                {
+                                    setB.push_back(bodyB->m_multiBody->getLink(i).m_collider);
+                                    setBLinkIndex.push_back(i);
+                                }
+                            }
+                        }
+                    }
+                    if (bodyB->m_rigidBody)
+                    {
+                        setB.push_back(bodyB->m_rigidBody);
+                        setBLinkIndex.push_back(-1);
+
+                    }
+                }
+            }
+
+            {
+                ///ContactResultCallback is used to report contact points
+                struct MyContactResultCallback : public btCollisionWorld::ContactResultCallback
+                {
+                    int m_bodyUniqueIdA;
+                    int m_bodyUniqueIdB;
+                    int m_linkIndexA;
+                    int m_linkIndexB;
+                    btScalar m_deltaTime;
+//                    btTransform fromTransform;
+//                    btTransform toTransform;
+
+                    btAlignedObjectArray<b3ConvexSweepContactPointData>& m_cachedContactPoints;
+
+                    MyContactResultCallback(btAlignedObjectArray<b3ConvexSweepContactPointData>& pointCache)
+                    :m_cachedContactPoints(pointCache)
+                    {
+                    }
+
+                    virtual ~MyContactResultCallback()
+                    {
+                    }
+
+                    virtual bool needsCollision(btBroadphaseProxy* proxy0) const
+                    {
+                        //bool collides = (proxy0->m_collisionFilterGroup & m_collisionFilterMask) != 0;
+                        //collides = collides && (m_collisionFilterGroup & proxy0->m_collisionFilterMask);
+                        //return collides;
+                        return true;
+                    }
+
+                    virtual	btScalar	addSingleResult(btManifoldPoint& cp, const btCollisionObjectWrapper* colObj0Wrap, int partId0, int index0, const btCollisionObjectWrapper* colObj1Wrap, int partId1, int index1)
+                    {
+                        if (cp.m_distance1<=m_closestDistanceThreshold)
+                        {
+                            b3ConvexSweepContactPointData pt;
+                            pt.m_bodyUniqueIdA = m_bodyUniqueIdA;
+                            pt.m_bodyUniqueIdB = m_bodyUniqueIdB;
+                            const btManifoldPoint& srcPt = cp;
+                            pt.m_contactDistance = srcPt.getDistance();
+                            pt.m_contactFlags = 0;
+                            pt.m_linkIndexA = m_linkIndexA;
+                            pt.m_linkIndexB = m_linkIndexB;
+                            for (int j = 0; j < 3; j++)
+                            {
+                                pt.m_contactNormalOnBInWS[j] = srcPt.m_normalWorldOnB[j];
+                                pt.m_positionOnAInWS[j] = srcPt.getPositionWorldOnA()[j];
+                                pt.m_positionOnBInWS[j] = srcPt.getPositionWorldOnB()[j];
+                            }
+                            pt.m_normalForce = srcPt.getAppliedImpulse() / m_deltaTime;
+                            pt.m_sweepContactFraction = 1;
+
+                            //                                    pt.m_linearFrictionForce = srcPt.m_appliedImpulseLateral1;
+                            m_cachedContactPoints.push_back(pt);
+                        }
+                        return 1;
+
+                    }
+                };
+
+
+                MyContactResultCallback cb(m_data->m_cachedConvexSweepContactPoints);
+
+                cb.m_bodyUniqueIdA = bodyUniqueIdA;
+                cb.m_bodyUniqueIdB = bodyUniqueIdB;
+                cb.m_deltaTime = m_data->m_physicsDeltaTime;
+
+//                cb.fromTransform = btTransform(btQuaternion(clientCmd.m_requestConvexSweepContactPointArguments.m_bodyAfromOrientation[0][0],
+//                                                clientCmd.m_requestConvexSweepContactPointArguments.m_bodyAfromOrientation[0][1],
+//                                                clientCmd.m_requestConvexSweepContactPointArguments.m_bodyAfromOrientation[0][2],
+//                                                clientCmd.m_requestConvexSweepContactPointArguments.m_bodyAfromOrientation[0][3]),
+//                                                btVector3(clientCmd.m_requestConvexSweepContactPointArguments.m_bodyAfromPosition[0][0],
+//                                                clientCmd.m_requestConvexSweepContactPointArguments.m_bodyAfromPosition[0][1],
+//                                                clientCmd.m_requestConvexSweepContactPointArguments.m_bodyAfromPosition[0][2]));
+
+//                cb.toTransform = btTransform(btQuaternion(clientCmd.m_requestConvexSweepContactPointArguments.m_bodyAtoOrientation[0][0],
+//                                                clientCmd.m_requestConvexSweepContactPointArguments.m_bodyAtoOrientation[0][1],
+//                                                clientCmd.m_requestConvexSweepContactPointArguments.m_bodyAtoOrientation[0][2],
+//                                                clientCmd.m_requestConvexSweepContactPointArguments.m_bodyAtoOrientation[0][3]),
+//                                                btVector3(clientCmd.m_requestConvexSweepContactPointArguments.m_bodyAtoPosition[0][0],
+//                                                clientCmd.m_requestConvexSweepContactPointArguments.m_bodyAtoPosition[0][1],
+//                                                clientCmd.m_requestConvexSweepContactPointArguments.m_bodyAtoPosition[0][2]));
+                for (int i = 0; i < setA.size(); i++)
+                {
+                    cb.m_linkIndexA = setALinkIndex[i];
+                    for (int j = 0; j < setB.size(); j++)
+                    {
+                        cb.m_linkIndexB = setBLinkIndex[j];
+                        cb.m_closestDistanceThreshold = closestDistanceThreshold;
+                        this->m_data->m_dynamicsWorld->contactPairTest(setA[i], setB[j], cb);
+                    }
+                }
+            }
+
+                break;
+            }
+            default:
+            {
+                b3Warning("Unknown contact query mode: %d", mode);
+            }
+
+        }
+    }
+
+    int numContactPoints = m_data->m_cachedConvexSweepContactPoints.size();
+
+
+    //b3ContactPoint
+    //struct b3ContactPointDynamics
+
+    int totalBytesPerContact = sizeof(b3ConvexSweepContactPointData);
+    int contactPointStorage = bufferSizeInBytes/totalBytesPerContact-1;
+
+    b3ConvexSweepContactPointData* contactData = (b3ConvexSweepContactPointData*)bufferServerToClient;
+
+    int startContactPointIndex = clientCmd.m_requestConvexSweepContactPointArguments.m_startingContactPointIndex;
+    int numContactPointBatch = btMin(numContactPoints,contactPointStorage);
+
+    int endContactPointIndex = startContactPointIndex+numContactPointBatch;
+
+    for (int i=startContactPointIndex;i<endContactPointIndex ;i++)
+    {
+        const b3ConvexSweepContactPointData& srcPt = m_data->m_cachedConvexSweepContactPoints[i];
+        b3ConvexSweepContactPointData& destPt = contactData[serverCmd.m_sendConvexSweepContactPointArgs.m_numContactPointsCopied];
+        destPt = srcPt;
+        serverCmd.m_sendConvexSweepContactPointArgs.m_numContactPointsCopied++;
+    }
+
+    serverCmd.m_sendConvexSweepContactPointArgs.m_startingContactPointIndex = clientCmd.m_requestConvexSweepContactPointArguments.m_startingContactPointIndex;
+    serverCmd.m_sendConvexSweepContactPointArgs.m_numRemainingContactPoints = numContactPoints - clientCmd.m_requestConvexSweepContactPointArguments.m_startingContactPointIndex - serverCmd.m_sendConvexSweepContactPointArgs.m_numContactPointsCopied;
+    serverCmd.m_numDataStreamBytes = totalBytesPerContact * serverCmd.m_sendConvexSweepContactPointArgs.m_numContactPointsCopied;
+    serverCmd.m_type = CMD_CONVEX_SWEEP_CONTACT_POINT_INFORMATION_COMPLETED; //CMD_CONVEX_SWEEP_CONTACT_POINT_INFORMATION_FAILED,
+
+    return hasStatus;
+}
+
 bool PhysicsServerCommandProcessor::processRequestBodyInfoCommand(const struct SharedMemoryCommand& clientCmd, struct SharedMemoryStatus& serverStatusOut, char* bufferServerToClient, int bufferSizeInBytes)
 {
 	bool hasStatus = true;
@@ -9127,6 +9492,11 @@ bool PhysicsServerCommandProcessor::processCommand(const struct SharedMemoryComm
 			hasStatus = processRequestContactpointInformationCommand(clientCmd,serverStatusOut,bufferServerToClient, bufferSizeInBytes);
 			break;
 		}
+    case CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_INFORMATION:
+        {
+            hasStatus = processRequestConvexSweepContactpointInformationCommand(clientCmd,serverStatusOut,bufferServerToClient, bufferSizeInBytes);
+            break;
+        }
 	case CMD_CALCULATE_INVERSE_DYNAMICS:
 		{
 			hasStatus = processInverseDynamicsCommand(clientCmd,serverStatusOut,bufferServerToClient, bufferSizeInBytes);

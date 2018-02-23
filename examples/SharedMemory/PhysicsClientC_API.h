@@ -251,6 +251,32 @@ B3_SHARED_API	void b3SetClosestDistanceFilterLinkB(b3SharedMemoryCommandHandle c
 B3_SHARED_API	void b3SetClosestDistanceThreshold(b3SharedMemoryCommandHandle commandHandle, double distance);
 B3_SHARED_API	void b3GetClosestPointInformation(b3PhysicsClientHandle physClient, struct b3ContactInformation* contactPointInfo);
 
+///request a convex hull swept contact point information
+B3_SHARED_API	b3SharedMemoryCommandHandle b3InitRequestConvexSweepContactPointInformation(b3PhysicsClientHandle physClient, double bodyAFromPosWorldX,
+                                                                                            double bodyAFromPosWorldY, double bodyAFromPosWorldZ,
+                                                                                            double bodyAFromOrnWorldX,double bodyAFromOrnWorldY, double bodyAFromOrnWorldZ, double bodyAFromOrnWorldW,
+                                                                                            double bodyAToPosWorldX, double bodyAToPosWorldY, double bodyAToPosWorldZ,
+                                                                                            double bodyAToOrnWorldX,double bodyAToOrnWorldY, double bodyAToOrnWorldZ, double bodyAToOrnWorldW);
+B3_SHARED_API	void b3SetConvexSweepContactFilterBodyA(b3SharedMemoryCommandHandle commandHandle, int bodyUniqueIdA);
+B3_SHARED_API	void b3SetConvexSweepContactFilterBodyB(b3SharedMemoryCommandHandle commandHandle, int bodyUniqueIdB);
+B3_SHARED_API	void b3SetConvexSweepContactFilterLinkA(b3SharedMemoryCommandHandle commandHandle, int linkIndexA);
+B3_SHARED_API	void b3SetConvexSweepContactFilterLinkB(b3SharedMemoryCommandHandle commandHandle, int linkIndexB);
+B3_SHARED_API	void b3GetConvexSweepContactPointInformation(b3PhysicsClientHandle physClient, struct b3ConvexSweepContactInformation* contactPointData);
+
+///compute the closest points between convex hull swept by moving body and a stationary body
+B3_SHARED_API	b3SharedMemoryCommandHandle b3InitConvexSweepClosestDistanceQuery(b3PhysicsClientHandle physClient, double bodyAFromPosWorldX,
+                                                                                  double bodyAFromPosWorldY, double bodyAFromPosWorldZ,
+                                                                                  double bodyAFromOrnWorldX,double bodyAFromOrnWorldY, double bodyAFromOrnWorldZ, double bodyAFromOrnWorldW,
+                                                                                  double bodyAToPosWorldX, double bodyAToPosWorldY, double bodyAToPosWorldZ,
+                                                                                  double bodyAToOrnWorldX,double bodyAToOrnWorldY, double bodyAToOrnWorldZ, double bodyAToOrnWorldW);
+B3_SHARED_API	void b3SetConvexSweepClosestDistanceFilterBodyA(b3SharedMemoryCommandHandle commandHandle, int bodyUniqueIdA);
+B3_SHARED_API	void b3SetConvexSweepClosestDistanceFilterLinkA(b3SharedMemoryCommandHandle commandHandle, int linkIndexA);
+B3_SHARED_API	void b3SetConvexSweepClosestDistanceFilterBodyB(b3SharedMemoryCommandHandle commandHandle, int bodyUniqueIdB);
+B3_SHARED_API	void b3SetConvexSweepClosestDistanceFilterLinkB(b3SharedMemoryCommandHandle commandHandle, int linkIndexB);
+B3_SHARED_API	void b3SetConvexSweepClosestDistanceThreshold(b3SharedMemoryCommandHandle commandHandle, double distance);
+B3_SHARED_API	void b3GetConvexSweepClosestPointInformation(b3PhysicsClientHandle physClient, struct b3ContactInformation* contactPointInfo);
+B3_SHARED_API	void b3GetConvexSweepClosestPointInformation(b3PhysicsClientHandle physClient, struct b3ContactInformation* contactPointInfo);
+
 ///get all the bodies that touch a given axis aligned bounding box specified in world space (min and max coordinates)
 B3_SHARED_API	b3SharedMemoryCommandHandle b3InitAABBOverlapQuery(b3PhysicsClientHandle physClient, const double aabbMin[/*3*/],const double aabbMax[/*3*/]);
 B3_SHARED_API	void b3GetAABBOverlapResults(b3PhysicsClientHandle physClient, struct b3AABBOverlapData* data);

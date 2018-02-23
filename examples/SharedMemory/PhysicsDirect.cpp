@@ -63,6 +63,8 @@ struct PhysicsDirectInternalData
 
 	btAlignedObjectArray<b3RayHitInfo>	m_raycastHits;
 
+    btAlignedObjectArray<b3ConvexSweepContactPointData> m_cachedConvexSweepContactPoints;
+
 	PhysicsCommandProcessorInterface* m_commandProcessor;
 	bool m_ownsCommandProcessor;
 	double m_timeOutInSeconds;
@@ -483,6 +485,68 @@ bool PhysicsDirect::processContactPointData(const struct SharedMemoryCommand& or
         }
     } while (serverCmd.m_sendContactPointArgs.m_numRemainingContactPoints > 0 && serverCmd.m_sendContactPointArgs.m_numContactPointsCopied);
     
+    return m_data->m_hasStatus;
+
+}
+
+bool PhysicsDirect::processConvexSweepContactPointData(const struct SharedMemoryCommand& orgCommand)
+{
+    SharedMemoryCommand command = orgCommand;
+
+    const SharedMemoryStatus& serverCmd = m_data->m_serverStatus;
+
+    do
+    {
+        bool hasStatus = m_data->m_commandProcessor->processCommand(command,m_data->m_serverStatus,&m_data->m_bulletStreamDataServerToClient[0],SHARED_MEMORY_MAX_STREAM_CHUNK_SIZE);
+
+        b3Clock clock;
+        double startTime = clock.getTimeInSeconds();
+        double timeOutInSeconds = m_data->m_timeOutInSeconds;
+
+        while ((!hasStatus) && (clock.getTimeInSeconds()-startTime < timeOutInSeconds))
+        {
+            const  SharedMemoryStatus* stat = processServerStatus();
+            if (stat)
+            {
+                hasStatus = true;
+            }
+        }
+
+
+        m_data->m_hasStatus = hasStatus;
+        if (hasStatus)
+        {
+            if (m_data->m_verboseOutput)
+            {
+                b3Printf("Contact Point Information Request OK\n");
+            }
+            int startContactIndex = serverCmd.m_sendConvexSweepContactPointArgs.m_startingContactPointIndex;
+            int numContactsCopied = serverCmd.m_sendConvexSweepContactPointArgs.m_numContactPointsCopied;
+
+            m_data->m_cachedConvexSweepContactPoints.resize(startContactIndex+numContactsCopied);
+
+            b3ConvexSweepContactPointData* contactData = (b3ConvexSweepContactPointData*)&m_data->m_bulletStreamDataServerToClient[0];
+
+            for (int i=0;i<numContactsCopied;i++)
+            {
+                m_data->m_cachedConvexSweepContactPoints[startContactIndex+i] = contactData[i];
+            }
+
+            if (serverCmd.m_sendConvexSweepContactPointArgs.m_numRemainingContactPoints>0 && serverCmd.m_sendConvexSweepContactPointArgs.m_numContactPointsCopied)
+            {
+
+                m_data->m_hasStatus = false;
+
+                command.m_type = CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_INFORMATION;
+                command.m_requestConvexSweepContactPointArguments.m_startingContactPointIndex = serverCmd.m_sendConvexSweepContactPointArgs.m_startingContactPointIndex+serverCmd.m_sendConvexSweepContactPointArgs.m_numContactPointsCopied;
+                command.m_requestConvexSweepContactPointArguments.m_objectAIndexFilter = -1;
+                command.m_requestConvexSweepContactPointArguments.m_objectBIndexFilter = -1;
+
+            }
+
+        }
+    } while (serverCmd.m_sendConvexSweepContactPointArgs.m_numRemainingContactPoints > 0 && serverCmd.m_sendConvexSweepContactPointArgs.m_numContactPointsCopied);
+
     return m_data->m_hasStatus;
 
 }
@@ -1089,6 +1153,11 @@ bool PhysicsDirect::submitClientCommand(const struct SharedMemoryCommand& comman
 		return processOverlappingObjects(command);
 	}
 
+    if (command.m_type == CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_INFORMATION)
+    {
+        return processConvexSweepContactPointData(command);
+    }
+
 	bool hasStatus = m_data->m_commandProcessor->processCommand(command,m_data->m_serverStatus,&m_data->m_bulletStreamDataServerToClient[0],SHARED_MEMORY_MAX_STREAM_CHUNK_SIZE);
 	m_data->m_hasStatus = hasStatus;
 	/*if (hasStatus)
@@ -1258,6 +1327,13 @@ void PhysicsDirect::getCachedContactPointInformation(struct b3ContactInformation
     contactPointData->m_numContactPoints = m_data->m_cachedContactPoints.size();
     contactPointData->m_contactPointData = contactPointData->m_numContactPoints? &m_data->m_cachedContactPoints[0] : 0;
     
+}
+
+void PhysicsDirect::getCachedConvexSweepContactPointInformation(struct b3ConvexSweepContactInformation* contactPointData)
+{
+    contactPointData->m_numContactPoints = m_data->m_cachedConvexSweepContactPoints.size();
+    contactPointData->m_contactPointData = contactPointData->m_numContactPoints? &m_data->m_cachedConvexSweepContactPoints[0] : 0;
+
 }
 
 void PhysicsDirect::getCachedOverlappingObjects(struct b3AABBOverlapData* overlappingObjects)
