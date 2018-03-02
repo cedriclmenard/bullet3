@@ -5415,16 +5415,19 @@ static PyObject* MyConvertConvexSweepContactPoint(struct b3ConvexSweepContactInf
      2     int m_bodyUniqueIdB;
      3     int m_linkIndexA;
      4     int m_linkIndexB;
-     5		double m_positionOnAInWS[3];//contact point location on object A,
+     5		double m_positionOnAInWS[3];//contact point location on object A(t),
      in world space coordinates
-     6		double m_positionOnBInWS[3];//contact point location on object
+     6		double m_positionOnAInWS1[3];//contact point location on object A(t+1),
+     in world space coordinates
+     7		double m_positionOnBInWS[3];//contact point location on object
      A, in world space coordinates
-     7		double m_contactNormalOnBInWS[3];//the separating contact
+     8		double m_contactNormalOnBInWS[3];//the separating contact
      normal, pointing from object B towards object A
-     8		double m_contactDistance;//negative number is penetration, positive
+     9		double m_contactDistance;//negative number is penetration, positive
      is distance.
-     9		double m_normalForce;
      10		double m_sweepContactFraction;
+     11		double m_normalForce;
+
      */
 
     int i;
@@ -5432,7 +5435,7 @@ static PyObject* MyConvertConvexSweepContactPoint(struct b3ConvexSweepContactInf
     PyObject* pyResultList = PyTuple_New(contactPointPtr->m_numContactPoints);
     for (i = 0; i < contactPointPtr->m_numContactPoints; i++)
     {
-        PyObject* contactObList = PyTuple_New(11);  // see above 11 fields
+        PyObject* contactObList = PyTuple_New(12);  // see above 11 fields
         PyObject* item;
         item =
             PyInt_FromLong(contactPointPtr->m_contactPointData[i].m_contactFlags);
@@ -5470,6 +5473,22 @@ static PyObject* MyConvertConvexSweepContactPoint(struct b3ConvexSweepContactInf
             PyObject* posBObj = PyTuple_New(3);
 
             item = PyFloat_FromDouble(
+                contactPointPtr->m_contactPointData[i].m_positionOnAInWS1[0]);
+            PyTuple_SetItem(posBObj, 0, item);
+            item = PyFloat_FromDouble(
+                contactPointPtr->m_contactPointData[i].m_positionOnAInWS1[1]);
+            PyTuple_SetItem(posBObj, 1, item);
+            item = PyFloat_FromDouble(
+                contactPointPtr->m_contactPointData[i].m_positionOnAInWS1[2]);
+            PyTuple_SetItem(posBObj, 2, item);
+
+            PyTuple_SetItem(contactObList, 6, posBObj);
+        }
+
+        {
+            PyObject* posBObj = PyTuple_New(3);
+
+            item = PyFloat_FromDouble(
                 contactPointPtr->m_contactPointData[i].m_positionOnBInWS[0]);
             PyTuple_SetItem(posBObj, 0, item);
             item = PyFloat_FromDouble(
@@ -5479,7 +5498,7 @@ static PyObject* MyConvertConvexSweepContactPoint(struct b3ConvexSweepContactInf
                 contactPointPtr->m_contactPointData[i].m_positionOnBInWS[2]);
             PyTuple_SetItem(posBObj, 2, item);
 
-            PyTuple_SetItem(contactObList, 6, posBObj);
+            PyTuple_SetItem(contactObList, 7, posBObj);
         }
 
         {
@@ -5493,19 +5512,18 @@ static PyObject* MyConvertConvexSweepContactPoint(struct b3ConvexSweepContactInf
             item = PyFloat_FromDouble(
                 contactPointPtr->m_contactPointData[i].m_contactNormalOnBInWS[2]);
             PyTuple_SetItem(normalOnB, 2, item);
-            PyTuple_SetItem(contactObList, 7, normalOnB);
+            PyTuple_SetItem(contactObList, 8, normalOnB);
         }
 
         item = PyFloat_FromDouble(
             contactPointPtr->m_contactPointData[i].m_contactDistance);
-        PyTuple_SetItem(contactObList, 8, item);
-        item = PyFloat_FromDouble(
-            contactPointPtr->m_contactPointData[i].m_normalForce);
         PyTuple_SetItem(contactObList, 9, item);
         item = PyFloat_FromDouble(
             contactPointPtr->m_contactPointData[i].m_sweepContactFraction);
         PyTuple_SetItem(contactObList, 10, item);
-
+        item = PyFloat_FromDouble(
+            contactPointPtr->m_contactPointData[i].m_normalForce);
+        PyTuple_SetItem(contactObList, 11, item);
 
         PyTuple_SetItem(pyResultList, i, contactObList);
     }
@@ -8390,7 +8408,7 @@ static PyObject* pybullet_calculateMassMatrix(PyObject* self, PyObject* args, Py
 	return Py_None;
 }
 
-static PyObject* pybullet_getConvexSweepClosestPoint(PyObject* self, PyObject* args, PyObject* keywds)
+static PyObject* pybullet_getConvexSweepClosestPoints(PyObject* self, PyObject* args, PyObject* keywds)
 {
     int bodyUniqueIdA = -1;
     int bodyUniqueIdB = -1;
@@ -8890,7 +8908,7 @@ static PyMethodDef SpamMethods[] = {
 	 "Get version of the API. Compatibility exists for connections using the same API version. Make sure both client and server use the same number of bits (32-bit or 64bit)."},
 
 
-    { "getConvexSweepClosestPoint", (PyCFunction)pybullet_getConvexSweepClosestPoint, METH_VARARGS | METH_KEYWORDS,
+    { "getConvexSweepClosestPoints", (PyCFunction)pybullet_getConvexSweepClosestPoints, METH_VARARGS | METH_KEYWORDS,
         "Returns the closest point between a convex hull swept by the moving object and a stationary object,  with an arbitrary separating distance." },
 
 	// todo(erwincoumans)

@@ -495,7 +495,8 @@ struct b3ConvexSweepContactPointData
     int m_bodyUniqueIdB;
     int m_linkIndexA;
     int m_linkIndexB;
-    double m_positionOnAInWS[3];//contact point location on object A, in world space coordinates
+    double m_positionOnAInWS[3];//contact point location on object A(t), in world space coordinates
+    double m_positionOnAInWS1[3];//contact point location on object A(t+1), in world space coordinates
     double m_positionOnBInWS[3];//contact point location on object B, in world space coordinates
     double m_contactNormalOnBInWS[3];//the separating contact normal, pointing from object B towards object A
     double m_contactDistance;//negative number is penetration, positive is distance.
