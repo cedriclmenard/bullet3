@@ -1,9 +1,10 @@
 /bin
 /build3/gmake
 /build_cmake/
-
+*/*/*build*
+*/*/*build3*
 *.pyc
-
+build3
 # Python
 __pycache__/
 *.py[cod]
