@@ -8739,6 +8739,11 @@ static PyObject* pybullet_getConvexSweepClosestPoints(PyObject* self, PyObject* 
 
     double distanceThreshold = 0.f;
 
+    PyObject* bodyBIndicesObj = 0;
+    int* bodyUniqueIdBIndices;
+    int bodyBindicesLen = -1;
+
+
     b3SharedMemoryCommandHandle commandHandle;
     struct b3ConvexSweepContactInformation contactPointData;
     b3SharedMemoryStatusHandle statusHandle;
@@ -8746,10 +8751,10 @@ static PyObject* pybullet_getConvexSweepClosestPoints(PyObject* self, PyObject* 
     int physicsClientId = 0;
     b3PhysicsClientHandle sm = 0;
 
-    static char* kwlist[] = {"bodyA", "bodyB", "distance", "bodyAfromPosition", "bodyAfromOrientation", "bodyAtoPosition", "bodyAtoOrientation", "linkIndexA", "linkIndexB", "physicsClientId", NULL};
+    static char* kwlist[] = {"bodyA", "bodyB", "distance", "bodyAfromPosition", "bodyAfromOrientation", "bodyAtoPosition", "bodyAtoOrientation", "linkIndexA", "linkIndexB", "bodyUniqueIdBIndices", "physicsClientId", NULL};
 
-    if (!PyArg_ParseTupleAndKeywords(args, keywds, "iidOOOO|iii", kwlist,
-                                     &bodyUniqueIdA, &bodyUniqueIdB, &distanceThreshold, &bodyAfromPosObj, &bodyAfromOrnObj, &bodyAtoPosObj, &bodyAtoOrnObj, &linkIndexA, &linkIndexB, &physicsClientId))
+    if (!PyArg_ParseTupleAndKeywords(args, keywds, "iidOOOO|iiOi", kwlist,
+                                     &bodyUniqueIdA, &bodyUniqueIdB, &distanceThreshold, &bodyAfromPosObj, &bodyAfromOrnObj, &bodyAtoPosObj, &bodyAtoOrnObj, &linkIndexA, &linkIndexB, &bodyBIndicesObj, &physicsClientId))
         return NULL;
 
     sm = getPhysicsClient(physicsClientId);
@@ -8759,20 +8764,56 @@ static PyObject* pybullet_getConvexSweepClosestPoints(PyObject* self, PyObject* 
         return NULL;
     }
 
-    pybullet_internalSetVectord(bodyAfromPosObj, bodyAfromPos);
-//    pybullet_internalSetVector4d(bodyAfromOrnObj, bodyAFromOrn);
+    if (!pybullet_internalSetVectord(bodyAfromPosObj, bodyAfromPos))
+    {
+        PyErr_SetString(SpamError, "Cannot convert bodyAfromPosition.");
+        return NULL;
+    }
+
     if (!pybullet_internalSetVector4d(bodyAfromOrnObj, bodyAfromOrn))
     {
         PyErr_SetString(SpamError, "Cannot convert bodyAfromOrientation.");
         return NULL;
     }
-
-    pybullet_internalSetVectord(bodyAtoPosObj, bodyAtoPos);
-//    pybullet_internalSetVector4d(bodyAtoOrnObj, bodyAToOrn);
+    if (!pybullet_internalSetVectord(bodyAtoPosObj, bodyAtoPos))
+    {
+        PyErr_SetString(SpamError, "Cannot convert bodyAtoPosition.");
+        return NULL;
+    }
     if (!pybullet_internalSetVector4d(bodyAtoOrnObj, bodyAtoOrn))
     {
         PyErr_SetString(SpamError, "Cannot convert bodyAtoOrientation.");
         return NULL;
+    }
+
+    if(bodyUniqueIdB <= -1){
+        if(bodyBIndicesObj != 0){
+            PyObject* seq = PySequence_Fast(bodyBIndicesObj, "expected a sequence");
+            if (seq)
+            {
+                bodyBindicesLen = (int) PySequence_Size(bodyBIndicesObj);
+                if (bodyBindicesLen > -1)
+                {
+                    int byteSizeIndices = sizeof(int) * bodyBindicesLen;
+                    int i;
+                    bodyUniqueIdBIndices = (int*)malloc(byteSizeIndices);
+
+                    for (i = 0; i < bodyBindicesLen; i++)
+                    {
+                        bodyUniqueIdBIndices[i] = (int)
+                                pybullet_internalGetFloatFromSequence(bodyBIndicesObj, i);
+                        //                printf("bodyBIndices[%d]: %d \n", i, *(bodyUniqueIdBIndices+i));
+
+
+                    }
+                }
+                else
+                {
+                    PyErr_SetString(SpamError,"Cannot convert bodyUniqueIdBIndices.");
+                    return NULL;
+                }
+            }
+        }
     }
 
     commandHandle = b3InitConvexSweepClosestDistanceQuery(sm, bodyAfromPos[0], bodyAfromPos[1], bodyAfromPos[2],
@@ -8792,6 +8833,14 @@ static PyObject* pybullet_getConvexSweepClosestPoints(PyObject* self, PyObject* 
         b3SetConvexSweepClosestDistanceFilterLinkB(commandHandle, linkIndexB);
     }
 
+    if (bodyUniqueIdB <= -1 && bodyBindicesLen >= -1)
+    {
+        b3SetConvexSweepClosestDistanceFilterBodyBIndices(commandHandle, bodyUniqueIdBIndices, bodyBindicesLen);
+
+    }
+
+
+
     statusHandle = b3SubmitClientCommandAndWaitStatus(sm, commandHandle);
     statusType = b3GetStatusType(statusHandle);
 
@@ -8800,6 +8849,10 @@ static PyObject* pybullet_getConvexSweepClosestPoints(PyObject* self, PyObject* 
         b3GetConvexSweepContactPointInformation(sm, &contactPointData);
 
         return MyConvertConvexSweepContactPoint(&contactPointData);
+    }
+    if (bodyBindicesLen >= -1)
+    {
+        free(bodyUniqueIdBIndices);
     }
 
     Py_INCREF(Py_None);

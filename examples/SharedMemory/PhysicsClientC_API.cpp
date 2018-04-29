@@ -3509,6 +3509,20 @@ B3_SHARED_API void b3SetConvexSweepContactFilterBodyB(b3SharedMemoryCommandHandl
     command->m_requestConvexSweepContactPointArguments.m_objectBIndexFilter = bodyUniqueIdB;
 }
 
+B3_SHARED_API void b3SetConvexSweepContactFilterBodyBIndices(b3SharedMemoryCommandHandle commandHandle, int *bodyUniqueIdBIndices, int length)
+{
+    struct SharedMemoryCommand* command = (struct SharedMemoryCommand*) commandHandle;
+    b3Assert(command);
+    b3Assert(command->m_type == CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_INFORMATION);
+    if(length > -1){
+        command->m_requestConvexSweepContactPointArguments.m_objectBIndicesLen = length;
+        int i = 0;
+        for(i = 0; i < length; i++){
+            command->m_requestConvexSweepContactPointArguments.m_objectBIndicesFilter[i] = *(bodyUniqueIdBIndices + i);
+        }
+    }
+}
+
 ///compute the closest points between convex hull swept by moving body and a stationary body
 B3_SHARED_API	b3SharedMemoryCommandHandle b3InitConvexSweepClosestDistanceQuery(b3PhysicsClientHandle physClient, double bodyAFromPosWorldX,
                                                                                   double bodyAFromPosWorldY, double bodyAFromPosWorldZ,
@@ -3525,6 +3539,8 @@ B3_SHARED_API	b3SharedMemoryCommandHandle b3InitConvexSweepClosestDistanceQuery(
     b3Assert(command->m_type == CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_INFORMATION);
     command->m_updateFlags = CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_QUERY_MODE;
     command->m_requestConvexSweepContactPointArguments.m_mode = CONVEX_SWEEP_CONTACT_QUERY_MODE_COMPUTE_CLOSEST_POINTS;
+    command->m_requestConvexSweepContactPointArguments.m_objectBIndicesLen = -1;
+//    command->m_requestConvexSweepContactPointArguments.m_objectBIndicesFilter[0] = -1;
     return commandHandle;
 }
 
@@ -3536,6 +3552,12 @@ B3_SHARED_API void b3SetConvexSweepClosestDistanceFilterBodyA(b3SharedMemoryComm
 B3_SHARED_API void b3SetConvexSweepClosestDistanceFilterBodyB(b3SharedMemoryCommandHandle commandHandle, int bodyUniqueIdB)
 {
     b3SetConvexSweepContactFilterBodyB(commandHandle,bodyUniqueIdB);
+
+}
+
+B3_SHARED_API void b3SetConvexSweepClosestDistanceFilterBodyBIndices(b3SharedMemoryCommandHandle commandHandle, int *bodyUniqueIdBIndices, int length)
+{
+    b3SetConvexSweepContactFilterBodyBIndices(commandHandle, bodyUniqueIdBIndices, length);
 }
 
 B3_SHARED_API void b3SetConvexSweepClosestDistanceThreshold(b3SharedMemoryCommandHandle commandHandle, double distance)
