@@ -5848,6 +5848,10 @@ bool PhysicsServerCommandProcessor::processRequestConvexSweepContactpointInforma
 
             int bodyUniqueIdA = clientCmd.m_requestConvexSweepContactPointArguments.m_objectAIndexFilter;
             int bodyUniqueIdB = clientCmd.m_requestConvexSweepContactPointArguments.m_objectBIndexFilter;
+            const int *bodyUniqueIdBIndices = clientCmd.m_requestConvexSweepContactPointArguments.m_objectBIndicesFilter;
+            int bodyUniqueIdBIndicesLen = clientCmd.m_requestConvexSweepContactPointArguments.m_objectBIndicesLen;
+
+
 
             bool hasLinkIndexAFilter = (0!=(clientCmd.m_updateFlags & CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_LINK_INDEX_A_FILTER));
             bool hasLinkIndexBFilter = (0!=(clientCmd.m_updateFlags & CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_LINK_INDEX_B_FILTER));
@@ -5859,6 +5863,8 @@ bool PhysicsServerCommandProcessor::processRequestConvexSweepContactpointInforma
             btAlignedObjectArray<btCollisionObject*> setB;
             btAlignedObjectArray<int> setALinkIndex;
             btAlignedObjectArray<int> setBLinkIndex;
+            btAlignedObjectArray<int> setBBodyIndex;
+
 
             if (bodyUniqueIdA >= 0)
             {
@@ -5926,6 +5932,44 @@ bool PhysicsServerCommandProcessor::processRequestConvexSweepContactpointInforma
                         setB.push_back(bodyB->m_rigidBody);
                         setBLinkIndex.push_back(-1);
 
+                    }
+                }
+            }else if (bodyUniqueIdBIndicesLen>=0)
+            {
+                int i = 0;
+                for(i = 0; i < bodyUniqueIdBIndicesLen; i++){
+                    InternalBodyData* bodyB = m_data->m_bodyHandles.getHandle(*(bodyUniqueIdBIndices+i));
+                    if (bodyB)
+                    {
+                        setBBodyIndex.push_back(*(bodyUniqueIdBIndices+i));
+                        if (bodyB->m_multiBody)
+                        {
+                            if (bodyB->m_multiBody->getBaseCollider())
+                            {
+                                if (!hasLinkIndexBFilter || (linkIndexB == -1))
+                                {
+                                    setB.push_back(bodyB->m_multiBody->getBaseCollider());
+                                    setBLinkIndex.push_back(-1);
+                                }
+                            }
+                            for (int i = 0; i < bodyB->m_multiBody->getNumLinks(); i++)
+                            {
+                                if (bodyB->m_multiBody->getLink(i).m_collider)
+                                {
+                                    if (!hasLinkIndexBFilter || (linkIndexB ==i))
+                                    {
+                                        setB.push_back(bodyB->m_multiBody->getLink(i).m_collider);
+                                        setBLinkIndex.push_back(i);
+                                    }
+                                }
+                            }
+                        }
+                        if (bodyB->m_rigidBody)
+                        {
+                            setB.push_back(bodyB->m_rigidBody);
+                            setBLinkIndex.push_back(-1);
+
+                        }
                     }
                 }
             }
@@ -6228,6 +6272,8 @@ bool PhysicsServerCommandProcessor::processRequestConvexSweepContactpointInforma
                     for (int j = 0; j < setB.size(); j++)
                     {
                         cb.m_linkIndexB = setBLinkIndex[j];
+                        if(bodyUniqueIdBIndicesLen >= 0)
+                            cb.m_bodyUniqueIdB = setBBodyIndex[j];
                         cb.m_closestDistanceThreshold = closestDistanceThreshold;
                         Utils::convexShapeSweepTest(this->m_data->m_dynamicsWorld, setA[i]->getCollisionShape(), setB[j],
                                               fromTransform, toTransform, cb);

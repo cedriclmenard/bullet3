@@ -3,8 +3,9 @@
 /build_cmake/
 */*/*build*
 */*/*build3*
+**/build*/**
 *.pyc
-build3
+
 # Python
 __pycache__/
 *.py[cod]
