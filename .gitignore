@@ -1,7 +1,9 @@
 /bin
 /build3/gmake
 /build_cmake/
-
+*/*/*build*
+*/*/*build3*
+**/build*/**
 *.pyc
 
 # Python

@@ -334,6 +334,8 @@ struct RequestConvexSweepContactDataArgs
     double m_bodyAfromOrientation[MAX_CONVEX_SWEEP_CONTACT_BATCH_SIZE][4];
     double m_bodyAtoPosition[MAX_CONVEX_SWEEP_CONTACT_BATCH_SIZE][3];
     double m_bodyAtoOrientation[MAX_CONVEX_SWEEP_CONTACT_BATCH_SIZE][4];
+    int m_objectBIndicesFilter[MAX_CONVEX_SWEEP_CONTACT_BATCH_SIZE];
+    int m_objectBIndicesLen;
 };
 
 struct RequestOverlappingObjectsArgs
@@ -1136,9 +1138,9 @@ struct SendConvexSweepContactDataArgs
 
 struct SendOverlappingObjectsArgs
 {
-	int m_startingOverlappingObjectIndex;
-	int m_numOverlappingObjectsCopied;
-	int m_numRemainingOverlappingObjects;
+        int m_startingOverlappingObjectIndex;
+        int m_numOverlappingObjectsCopied;
+        int m_numRemainingOverlappingObjects;
 };
 
 struct SharedMemoryStatus
