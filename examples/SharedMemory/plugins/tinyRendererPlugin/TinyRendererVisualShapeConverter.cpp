@@ -120,6 +120,9 @@ struct TinyRendererVisualShapeConverterInternalData
 	    m_segmentationMaskBuffer.resize(m_swWidth*m_swHeight,-1);
 	}
 	
+	virtual ~TinyRendererVisualShapeConverterInternalData()
+	{
+	}
 };
 
 

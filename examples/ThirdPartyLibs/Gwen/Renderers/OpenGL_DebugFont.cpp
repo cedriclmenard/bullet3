@@ -6,7 +6,7 @@
 
 #include <math.h>
 #ifdef B3_USE_GLFW
-#include "glad/glad.h"
+#include "glad/gl.h"
 #include <GLFW/glfw3.h>
 #else
 
@@ -14,25 +14,10 @@
 	#include <OpenGL/OpenGL.h>
 	#include <OpenGL/gl.h>
 #else
-#ifdef GLEW_STATIC
-#include "glad/glad.h"
-#else
-#ifdef NO_GLEW
-#define GL_GLEXT_LEGACY
-#include "third_party/GL/gl/include/GL/gl.h"
-#include "third_party/GL/gl/include/GL/glext.h"
-#else
+#include "glad/gl.h"
+#endif//__APPLE__
 
-#ifdef BT_NO_GLAD
-#include <GL/glew.h>
-#else
-#include "glad/glad.h"
-#endif
-
-#endif //NO_GLEW
-#endif //GLEW_STATIC
-#endif//(__APPLE__)
-#endif
+#endif //B3_USE_GLFW
 
 #include "FontData.h"
 

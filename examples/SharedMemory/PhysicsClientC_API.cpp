@@ -1008,10 +1008,10 @@ B3_SHARED_API int b3GetLinkState(b3PhysicsClientHandle physClient, b3SharedMemor
   int bodyIndex = status->m_sendActualStateArgs.m_bodyUniqueId;
   b3Assert(bodyIndex>=0);
   b3Assert(linkIndex >= 0);
-  int numJoints = b3GetNumJoints(physClient,bodyIndex);
-  b3Assert(linkIndex < numJoints);
+  int numLinks = status->m_sendActualStateArgs.m_numLinks;
+  b3Assert(linkIndex < numLinks);
 
-  if ((bodyIndex>=0) && (linkIndex >= 0) && linkIndex < numJoints)
+  if ((bodyIndex>=0) && (linkIndex >= 0) && linkIndex < numLinks)
   {
 	  b3Transform wlf,com,inertial;
 	
@@ -2397,9 +2397,9 @@ B3_SHARED_API	void b3CustomCommandExecutePluginCommand(b3SharedMemoryCommandHand
 		command->m_customCommandArgs.m_arguments.m_numFloats = 0;
 		command->m_customCommandArgs.m_arguments.m_text[0] = 0;
 
-		int len = strlen(textArguments);
+		int len = textArguments ? strlen(textArguments) : 0;
 
-		if (len<MAX_FILENAME_LENGTH)
+		if (len && len<MAX_FILENAME_LENGTH)
 		{
 			strcpy(command->m_customCommandArgs.m_arguments.m_text, textArguments);
 		}

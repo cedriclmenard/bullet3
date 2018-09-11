@@ -80,6 +80,7 @@ float shadowMapWorldSize=10;
 #include "Shaders/linesVS.h"
 
 #include "GLRenderToTexture.h"
+#include "stb_image/stb_image_write.h"
 
 
 
@@ -1542,9 +1543,6 @@ void GLInstancingRenderer::updateCamera(int upAxis)
 
 
 
-
-//#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "stb_image/stb_image_write.h"
 void writeTextureToPng(int textureWidth, int textureHeight, const char* fileName, int numComponents)
 {
 
