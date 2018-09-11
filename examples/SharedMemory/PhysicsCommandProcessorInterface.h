@@ -27,6 +27,7 @@ public:
 	virtual void setGuiHelper(struct GUIHelperInterface* guiHelper) = 0;
 	virtual void setTimeOut(double timeOutInSeconds) = 0;
 
+	virtual void reportNotifications() = 0;
 };
 
 
@@ -43,6 +44,8 @@ public:
 	virtual void stepSimulationRealTime(double dtInSec,const struct b3VRControllerEvent* vrControllerEvents, int numVRControllerEvents, const struct b3KeyboardEvent* keyEvents, int numKeyEvents, const struct b3MouseEvent* mouseEvents, int numMouseEvents)=0;
 	virtual void enableRealTimeSimulation(bool enableRealTimeSim)=0;
 	virtual bool isRealTimeSimulationEnabled() const=0;
+
+
 
 	virtual void enableCommandLogging(bool enable, const char* fileName)=0;
 	virtual void replayFromLogFile(const char* fileName)=0;
