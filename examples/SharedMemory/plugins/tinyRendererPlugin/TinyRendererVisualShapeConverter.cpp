@@ -67,7 +67,8 @@ struct TinyRendererVisualShapeConverterInternalData
 	
     btHashMap<btHashInt,TinyRendererObjectArray*> m_swRenderInstances;
 
-	btAlignedObjectArray<b3VisualShapeData> m_visualShapes;
+    // Maps bodyUniqueId to a list of visual shapes belonging to the body.
+    btHashMap<btHashInt,btAlignedObjectArray<b3VisualShapeData> > m_visualShapesMap;
     
    	int m_upAxis;
 	int m_swWidth;
@@ -243,10 +244,13 @@ void convertURDFToVisualShape(const UrdfShape* visual, const char* urdfPathPrefi
 						vertices.push_back(vert);
 					}
 				}
-				btVector3 pole1 = p1 - dir * rad;
-				btVector3 pole2 = p2 + dir * rad;
-				vertices.push_back(pole1);
-				vertices.push_back(pole2);
+				if (visual->m_geometry.m_type==URDF_GEOM_CAPSULE)
+				{
+					btVector3 pole1 = p1 - dir * rad;
+					btVector3 pole2 = p2 + dir * rad;
+					vertices.push_back(pole1);
+					vertices.push_back(pole2);
+				}
 
 			} else {
 				//assume a capsule along the Z-axis, centered at the origin
@@ -260,10 +264,13 @@ void convertURDFToVisualShape(const UrdfShape* visual, const char* urdfPathPrefi
 					vert[2] = -len / 2.;
 					vertices.push_back(vert);
 				}
-				btVector3 pole1(0, 0, + len / 2. + rad);
-				btVector3 pole2(0, 0, - len / 2. - rad);
-				vertices.push_back(pole1);
-				vertices.push_back(pole2);
+				if (visual->m_geometry.m_type==URDF_GEOM_CAPSULE)
+				{
+					btVector3 pole1(0, 0, + len / 2. + rad);
+					btVector3 pole2(0, 0, - len / 2. - rad);
+					vertices.push_back(pole1);
+					vertices.push_back(pole2);
+				}
 			}
 			visualShapeOut.m_localVisualFrame[0] = tr.getOrigin()[0];
 			visualShapeOut.m_localVisualFrame[1] = tr.getOrigin()[1];
@@ -612,6 +619,17 @@ void TinyRendererVisualShapeConverter::convertVisualShapes(
 						}
 						//printf("UrdfMaterial %s, rgba = %f,%f,%f,%f\n",mat->m_name.c_str(),mat->m_rgbaColor[0],mat->m_rgbaColor[1],mat->m_rgbaColor[2],mat->m_rgbaColor[3]);
 						//m_data->m_linkColors.insert(linkIndex,mat->m_rgbaColor);
+					} else
+					{
+						///programmatic created models may have the color in the visual
+						if (vis && vis->m_geometry.m_hasLocalMaterial)
+						{
+							for (int i = 0; i < 4; i++)
+							{
+								rgbaColor[i] = vis->m_geometry.m_localMaterial.m_matColor.m_rgbaColor[i];
+							}
+						}
+
 					}
 				}
 				
@@ -654,13 +672,15 @@ void TinyRendererVisualShapeConverter::convertVisualShapes(
 			visualShape.m_rgbaColor[1] = rgbaColor[1];
 			visualShape.m_rgbaColor[2] = rgbaColor[2];
 			visualShape.m_rgbaColor[3] = rgbaColor[3];
+            visualShape.m_openglTextureId = -1;
+            visualShape.m_tinyRendererTextureId = -1;
+            visualShape.m_textureUniqueId = -1;
             
 			{
 				B3_PROFILE("convertURDFToVisualShape");
 				convertURDFToVisualShape(vis, pathPrefix, localInertiaFrame.inverse()*childTrans, vertices, indices, textures, visualShape);
 			}
-			m_data->m_visualShapes.push_back(visualShape);
-
+			
             if (vertices.size() && indices.size())
             {
                 TinyRenderObjectData* tinyObj = new TinyRenderObjectData(m_data->m_rgbColorBuffer,m_data->m_depthBuffer, &m_data->m_shadowBuffer, &m_data->m_segmentationMaskBuffer, bodyUniqueId, linkIndex);
@@ -684,87 +704,63 @@ void TinyRendererVisualShapeConverter::convertVisualShapes(
 				}
                 visuals->m_renderObjects.push_back(tinyObj);
             }
+            
+            btAssert(textures.size()<=1);
 			for (int i=0;i<textures.size();i++)
 			{
-				if (!textures[i].m_isCached)
-				{
-					free(textures[i].textureData1);
-				}
+                visualShape.m_tinyRendererTextureId = m_data->m_textures.size();
+                m_data->m_textures.push_back(textures[i]);                
 			}
+			btAlignedObjectArray<b3VisualShapeData>* shapes = m_data->m_visualShapesMap[visualShape.m_objectUniqueId];
+			if (!shapes) {
+				m_data->m_visualShapesMap.insert(visualShape.m_objectUniqueId, btAlignedObjectArray<b3VisualShapeData>());
+				shapes = m_data->m_visualShapesMap[visualShape.m_objectUniqueId];
+				
+			}
+			shapes->push_back(visualShape);
 		}
 	}
 }
 
 int TinyRendererVisualShapeConverter::getNumVisualShapes(int bodyUniqueId)
 {
-	int start = -1;
-	//find first one, then count how many
-	for (int i = 0; i < m_data->m_visualShapes.size(); i++)
-	{
-		if (m_data->m_visualShapes[i].m_objectUniqueId == bodyUniqueId)
-		{
-			start = i;
-			break;
-		}
+	btAlignedObjectArray<b3VisualShapeData>* shapes = m_data->m_visualShapesMap[bodyUniqueId];
+	if (shapes) {
+		return shapes->size();
 	}
-	int count = 0;
-
-	if (start >= 0)
-	{
-		for (int i = start; i < m_data->m_visualShapes.size(); i++)
-		{
-			if (m_data->m_visualShapes[i].m_objectUniqueId == bodyUniqueId)
-			{
-				count++;
-			}
-			else
-			{
-				//storage of each visual shape for a given body unique id assumed to be contiguous
-				break;
-			}
-		}
-	}
-	return count;
+	return 0;
 }
 
 int TinyRendererVisualShapeConverter::getVisualShapesData(int bodyUniqueId, int shapeIndex, struct b3VisualShapeData* shapeData)
 {
-	int start = -1;
-	//find first one, then count how many
-	for (int i = 0; i < m_data->m_visualShapes.size(); i++)
-	{
-		if (m_data->m_visualShapes[i].m_objectUniqueId == bodyUniqueId)
-		{
-			start = i;
-			break;
-		}
+	btAlignedObjectArray<b3VisualShapeData>* shapes = m_data->m_visualShapesMap[bodyUniqueId];
+	if (!shapes) {
+		return 0;
 	}
-	//int count = 0;
-
-	if (start >= 0)
-	{
-		if (start + shapeIndex < m_data->m_visualShapes.size())
-		{
-			*shapeData = m_data->m_visualShapes[start + shapeIndex];
-			return 1;
-		}
+	if (shapes->size() <= shapeIndex) {
+		return 0;
 	}
-	return 0;
+	*shapeData = shapes->at(shapeIndex);
+	return 1;
 }
 
 
 
 void TinyRendererVisualShapeConverter::changeRGBAColor(int bodyUniqueId, int linkIndex, int shapeIndex, const double rgbaColor[4])
 {
+	btAlignedObjectArray<b3VisualShapeData>* shapes = m_data->m_visualShapesMap[bodyUniqueId];
+	if (!shapes) {
+		return;
+	}
     int start = -1;
-    for (int i = 0; i < m_data->m_visualShapes.size(); i++)
+    for (int i = 0; i < shapes->size(); i++)
     {
-        if (m_data->m_visualShapes[i].m_objectUniqueId == bodyUniqueId && m_data->m_visualShapes[i].m_linkIndex == linkIndex)
+        if (shapes->at(i).m_linkIndex == linkIndex)
         {
-			m_data->m_visualShapes[i].m_rgbaColor[0] = rgbaColor[0];
-			m_data->m_visualShapes[i].m_rgbaColor[1] = rgbaColor[1];
-			m_data->m_visualShapes[i].m_rgbaColor[2] = rgbaColor[2];
-			m_data->m_visualShapes[i].m_rgbaColor[3] = rgbaColor[3];
+			shapes->at(i).m_rgbaColor[0] = rgbaColor[0];
+			shapes->at(i).m_rgbaColor[1] = rgbaColor[1];
+			shapes->at(i).m_rgbaColor[2] = rgbaColor[2];
+			shapes->at(i).m_rgbaColor[3] = rgbaColor[3];
 		}
     }
     
@@ -1122,6 +1118,7 @@ void TinyRendererVisualShapeConverter::removeVisualShape(int collisionObjectUniq
 		TinyRendererObjectArray* ptr = *ptrptr;
 		if (ptr)
 		{
+			m_data->m_visualShapesMap.remove(ptr->m_objectUniqueId);
 			for (int o=0;o<ptr->m_renderObjects.size();o++)
 			{
 				delete ptr->m_renderObjects[o];
@@ -1161,7 +1158,7 @@ void TinyRendererVisualShapeConverter::resetAll()
 	}
 	m_data->m_textures.clear();
 	m_data->m_swRenderInstances.clear();
-	m_data->m_visualShapes.clear();
+	m_data->m_visualShapesMap.clear();
 }
 
 
@@ -1182,13 +1179,13 @@ void TinyRendererVisualShapeConverter::changeShapeTexture(int objectUniqueId, in
 				for (int v = 0; v < visualArray->m_renderObjects.size(); v++)
 				{
 					TinyRenderObjectData* renderObj = visualArray->m_renderObjects[v];
+                    
 					if ((shapeIndex < 0) || (shapeIndex == v))
 					{
 						renderObj->m_model->setDiffuseTextureFromData(m_data->m_textures[textureUniqueId].textureData1, m_data->m_textures[textureUniqueId].m_width, m_data->m_textures[textureUniqueId].m_height);
 					}
 				}
 			}
-
 		}
 	}
 }

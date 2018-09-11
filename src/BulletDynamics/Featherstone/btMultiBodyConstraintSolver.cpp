@@ -39,7 +39,7 @@ btScalar btMultiBodyConstraintSolver::solveSingleIteration(int iteration, btColl
 		btMultiBodySolverConstraint& constraint = m_multiBodyNonContactConstraints[index];
 		
 		btScalar residual = resolveSingleConstraintRowGeneric(constraint);
-		leastSquaredResidual += residual*residual;
+		leastSquaredResidual = btMax(leastSquaredResidual,residual*residual);
 
 		if(constraint.m_multiBodyA) 
 			constraint.m_multiBodyA->setPosUpdated(false);
@@ -60,7 +60,7 @@ btScalar btMultiBodyConstraintSolver::solveSingleIteration(int iteration, btColl
 			residual = resolveSingleConstraintRowGeneric(constraint);
 		}
 
-		leastSquaredResidual += residual*residual;
+		leastSquaredResidual = btMax(leastSquaredResidual,residual*residual);
  
 		if(constraint.m_multiBodyA) 
 			constraint.m_multiBodyA->setPosUpdated(false);
@@ -85,7 +85,7 @@ btScalar btMultiBodyConstraintSolver::solveSingleIteration(int iteration, btColl
 					frictionConstraint.m_lowerLimit = -(frictionConstraint.m_friction*totalImpulse);
 					frictionConstraint.m_upperLimit = frictionConstraint.m_friction*totalImpulse;
 					btScalar residual = resolveSingleConstraintRowGeneric(frictionConstraint);
-					leastSquaredResidual += residual*residual;
+					leastSquaredResidual = btMax(leastSquaredResidual , residual*residual);
 
 					if (frictionConstraint.m_multiBodyA)
 						frictionConstraint.m_multiBodyA->setPosUpdated(false);
@@ -115,7 +115,7 @@ btScalar btMultiBodyConstraintSolver::solveSingleIteration(int iteration, btColl
 					frictionConstraintB.m_lowerLimit = -(frictionConstraintB.m_friction*totalImpulse);
 					frictionConstraintB.m_upperLimit = frictionConstraintB.m_friction*totalImpulse;
 					btScalar residual = resolveConeFrictionConstraintRows(frictionConstraint, frictionConstraintB);
-					leastSquaredResidual += residual*residual;
+					leastSquaredResidual = btMax(leastSquaredResidual, residual*residual);
 					
 					if (frictionConstraintB.m_multiBodyA)
 						frictionConstraintB.m_multiBodyA->setPosUpdated(false);
@@ -148,7 +148,7 @@ btScalar btMultiBodyConstraintSolver::solveSingleIteration(int iteration, btColl
 					frictionConstraint.m_lowerLimit = -(frictionConstraint.m_friction*totalImpulse);
 					frictionConstraint.m_upperLimit = frictionConstraint.m_friction*totalImpulse;
 					btScalar residual = resolveSingleConstraintRowGeneric(frictionConstraint);
-					leastSquaredResidual += residual*residual;
+					leastSquaredResidual = btMax(leastSquaredResidual, residual*residual);
 
 					if (frictionConstraint.m_multiBodyA)
 						frictionConstraint.m_multiBodyA->setPosUpdated(false);
@@ -246,7 +246,7 @@ btScalar btMultiBodyConstraintSolver::resolveSingleConstraintRowGeneric(const bt
 	{
 		c.m_appliedImpulse = sum;
 	}
-
+	
 	if (c.m_multiBodyA)
 	{
 		applyDeltaVee(&m_data.m_deltaVelocitiesUnitImpulse[c.m_jacAindex], deltaImpulse, c.m_deltaVelAindex, ndofA);
@@ -274,7 +274,8 @@ btScalar btMultiBodyConstraintSolver::resolveSingleConstraintRowGeneric(const bt
 	{
 		bodyB->internalApplyImpulse(c.m_contactNormal2*bodyB->internalGetInvMass(), c.m_angularComponentB, deltaImpulse);
 	}
-	return deltaImpulse;
+    btScalar deltaVel =deltaImpulse/c.m_jacDiagABInv;
+	return deltaVel;
 }
 
 
@@ -453,7 +454,8 @@ btScalar btMultiBodyConstraintSolver::resolveConeFrictionConstraintRows(const bt
 		bodyB->internalApplyImpulse(cB.m_contactNormal2*bodyB->internalGetInvMass(),cB.m_angularComponentB,deltaImpulseB);
 	}
 
-	return deltaImpulseA+deltaImpulseB;
+    btScalar deltaVel =deltaImpulseA/cA.m_jacDiagABInv+deltaImpulseB/cB.m_jacDiagABInv;
+    return deltaVel;
 }
 
 
@@ -1404,6 +1406,7 @@ void btMultiBodyConstraintSolver::convertContacts(btPersistentManifold** manifol
 
 btScalar btMultiBodyConstraintSolver::solveGroup(btCollisionObject** bodies,int numBodies,btPersistentManifold** manifold,int numManifolds,btTypedConstraint** constraints,int numConstraints,const btContactSolverInfo& info, btIDebugDraw* debugDrawer,btDispatcher* dispatcher)
 {
+	//printf("btMultiBodyConstraintSolver::solveGroup: numBodies=%d, numConstraints=%d\n", numBodies, numConstraints);
 	return btSequentialImpulseConstraintSolver::solveGroup(bodies,numBodies,manifold,numManifolds,constraints,numConstraints,info,debugDrawer,dispatcher);
 }
 
@@ -1487,27 +1490,12 @@ void btMultiBodyConstraintSolver::writeBackSolverBodyToMultiBody(btMultiBodySolv
 
 	if (c.m_multiBodyA)
 	{
-		
-		if(c.m_multiBodyA->isMultiDof())
-		{
-			c.m_multiBodyA->applyDeltaVeeMultiDof(&m_data.m_deltaVelocitiesUnitImpulse[c.m_jacAindex],c.m_appliedImpulse);
-		}
-		else
-		{
-			c.m_multiBodyA->applyDeltaVee(&m_data.m_deltaVelocitiesUnitImpulse[c.m_jacAindex],c.m_appliedImpulse);
-		}
+		c.m_multiBodyA->applyDeltaVeeMultiDof(&m_data.m_deltaVelocitiesUnitImpulse[c.m_jacAindex],c.m_appliedImpulse);
 	}
 	
 	if (c.m_multiBodyB)
 	{
-		if(c.m_multiBodyB->isMultiDof())
-		{
-			c.m_multiBodyB->applyDeltaVeeMultiDof(&m_data.m_deltaVelocitiesUnitImpulse[c.m_jacBindex],c.m_appliedImpulse);
-		}
-		else
-		{
-			c.m_multiBodyB->applyDeltaVee(&m_data.m_deltaVelocitiesUnitImpulse[c.m_jacBindex],c.m_appliedImpulse);
-		}
+		c.m_multiBodyB->applyDeltaVeeMultiDof(&m_data.m_deltaVelocitiesUnitImpulse[c.m_jacBindex],c.m_appliedImpulse);
 	}
 #endif
 
@@ -1669,6 +1657,8 @@ btScalar btMultiBodyConstraintSolver::solveGroupCacheFriendlyFinish(btCollisionO
 
 void  btMultiBodyConstraintSolver::solveMultiBodyGroup(btCollisionObject** bodies,int numBodies,btPersistentManifold** manifold,int numManifolds,btTypedConstraint** constraints,int numConstraints,btMultiBodyConstraint** multiBodyConstraints, int numMultiBodyConstraints, const btContactSolverInfo& info, btIDebugDraw* debugDrawer,btDispatcher* dispatcher)
 {
+	//printf("solveMultiBodyGroup: numBodies=%d, numConstraints=%d, numManifolds=%d, numMultiBodyConstraints=%d\n", numBodies, numConstraints, numManifolds, numMultiBodyConstraints);
+
 	//printf("solveMultiBodyGroup start\n");
 	m_tmpMultiBodyConstraints = multiBodyConstraints;
 	m_tmpNumMultiBodyConstraints = numMultiBodyConstraints;

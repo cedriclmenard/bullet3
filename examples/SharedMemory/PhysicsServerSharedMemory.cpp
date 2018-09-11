@@ -170,7 +170,7 @@ bool PhysicsServerSharedMemory::connectSharedMemory( struct GUIHelperInterface* 
                 }
             } else
             {
-                b3Error("Cannot connect to shared memory");
+                //b3Error("Cannot connect to shared memory");
                 m_data->m_areConnected[block] = false;
             }
         } while (counter++ < 10 && !m_data->m_areConnected[block]);
@@ -242,7 +242,10 @@ bool PhysicsServerSharedMemory::isRealTimeSimulationEnabled() const
 	return m_data->m_commandProcessor->isRealTimeSimulationEnabled();
 }
 
-
+void PhysicsServerSharedMemory::reportNotifications()
+{
+	m_data->m_commandProcessor->reportNotifications();
+}
 
 void PhysicsServerSharedMemory::processClientCommands()
 {
