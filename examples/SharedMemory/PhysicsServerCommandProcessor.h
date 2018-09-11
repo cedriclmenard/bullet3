@@ -129,8 +129,6 @@ public:
 		return true;
 	}
 
-
-
 	virtual bool processCommand(const struct SharedMemoryCommand& clientCmd, struct SharedMemoryStatus& serverStatusOut, char* bufferServerToClient, int bufferSizeInBytes);
 
 	virtual bool receiveStatus(struct SharedMemoryStatus& serverStatusOut, char* bufferServerToClient, int bufferSizeInBytes)
@@ -157,6 +155,7 @@ public:
 
 	//logging of object states (position etc)
 	virtual void reportNotifications();
+	virtual void processClientCommands();
 	void tickPlugins(btScalar timeStep, bool isPreTick);
 	void logObjectStates(btScalar timeStep);
 	void processCollisionForces(btScalar timeStep);
