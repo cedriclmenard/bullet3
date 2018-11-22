@@ -14,7 +14,7 @@ using grpc::Channel;
 #include "Bullet3Common/b3AlignedObjectArray.h"
 #include "SharedMemory/grpc/ConvertGRPCBullet.h"
 
-using pybullet_grpc::PyBulletAPI;
+using pybullet_grpc::grpc::PyBulletAPI;
 
 static unsigned int b3DeserializeInt2(const unsigned char* input)
 {
@@ -24,14 +24,12 @@ static unsigned int b3DeserializeInt2(const unsigned char* input)
 
 bool gVerboseNetworkMessagesClient3 = false;
 
-
-struct	GRPCNetworkedInternalData
+struct GRPCNetworkedInternalData
 {
 	std::shared_ptr<grpc::Channel> m_grpcChannel;
-	std::unique_ptr< PyBulletAPI::Stub> m_stub;
-	
+	std::unique_ptr<PyBulletAPI::Stub> m_stub;
 
-	bool		m_isConnected;
+	bool m_isConnected;
 
 	SharedMemoryCommand m_clientCmd;
 	bool m_hasCommand;
@@ -46,12 +44,10 @@ struct	GRPCNetworkedInternalData
 	double m_timeOutInSeconds;
 
 	GRPCNetworkedInternalData()
-		:
-		m_isConnected(false),
-		m_hasCommand(false),
-		m_timeOutInSeconds(60)
+		: m_isConnected(false),
+		  m_hasCommand(false),
+		  m_timeOutInSeconds(60)
 	{
-
 	}
 
 	void disconnect()
@@ -67,17 +63,19 @@ struct	GRPCNetworkedInternalData
 	{
 		if (m_isConnected)
 			return true;
-		std::string hostport = m_hostName + ':' + std::to_string(m_port);
-		m_grpcChannel  = grpc::CreateChannel(
+		std::string hostport = m_hostName;
+		if (m_port >= 0)
+		{
+			hostport += ':' + std::to_string(m_port);
+		}
+		m_grpcChannel = grpc::CreateChannel(
 			hostport, grpc::InsecureChannelCredentials());
 
 		m_stub = PyBulletAPI::NewStub(m_grpcChannel);
 
-		
-		
 		// Set timeout for API
 		std::chrono::system_clock::time_point deadline =
-			std::chrono::system_clock::now()+std::chrono::seconds((long long)m_timeOutInSeconds);
+			std::chrono::system_clock::now() + std::chrono::seconds((long long)m_timeOutInSeconds);
 		grpc::ClientContext context;
 		context.set_deadline(deadline);
 		::pybullet_grpc::PyBulletCommand request;
@@ -102,20 +100,15 @@ struct	GRPCNetworkedInternalData
 			printf("Error: cannot connect to GRPC server\n");
 		}
 
-        
-      
 		return m_isConnected;
 	}
 
 	bool checkData()
 	{
-
 		bool hasStatus = false;
 		return hasStatus;
 	}
-
 };
-
 
 GRPCNetworkedPhysicsProcessor::GRPCNetworkedPhysicsProcessor(const char* hostName, int port)
 {
@@ -125,7 +118,6 @@ GRPCNetworkedPhysicsProcessor::GRPCNetworkedPhysicsProcessor(const char* hostNam
 		m_data->m_hostName = hostName;
 	}
 	m_data->m_port = port;
-
 }
 
 GRPCNetworkedPhysicsProcessor::~GRPCNetworkedPhysicsProcessor()
@@ -136,7 +128,7 @@ GRPCNetworkedPhysicsProcessor::~GRPCNetworkedPhysicsProcessor()
 
 bool GRPCNetworkedPhysicsProcessor::processCommand(const struct SharedMemoryCommand& clientCmd, struct SharedMemoryStatus& serverStatusOut, char* bufferServerToClient, int bufferSizeInBytes)
 {
-	if(gVerboseNetworkMessagesClient3)
+	if (gVerboseNetworkMessagesClient3)
 	{
 		printf("GRPCNetworkedPhysicsProcessor::processCommand\n");
 	}
@@ -153,18 +145,16 @@ bool GRPCNetworkedPhysicsProcessor::processCommand(const struct SharedMemoryComm
 		::pybullet_grpc::PyBulletStatus status;
 		// The actual RPC.
 		grpc::Status grpcStatus = m_data->m_stub->SubmitCommand(&context, grpcCommand, &status);
-		
+
 		//convert grpc status to Bullet status
 		bool convertedOk = convertGRPCToStatus(status, serverStatusOut, bufferServerToClient, bufferSizeInBytes);
 		if (!convertedOk)
 		{
 			disconnect();
-			
 		}
 		return convertedOk;
-
 	}
-	
+
 	return false;
 }
 
@@ -193,20 +183,16 @@ bool GRPCNetworkedPhysicsProcessor::receiveStatus(struct SharedMemoryStatus& ser
 		{
 			printf("Error: steam buffer overflow\n");
 		}
-
 	}
 
-	
 	return hasStatus;
-
 }
-
 
 void GRPCNetworkedPhysicsProcessor::renderScene(int renderFlags)
 {
 }
 
-void   GRPCNetworkedPhysicsProcessor::physicsDebugDraw(int debugDrawFlags)
+void GRPCNetworkedPhysicsProcessor::physicsDebugDraw(int debugDrawFlags)
 {
 }
 
@@ -219,7 +205,6 @@ bool GRPCNetworkedPhysicsProcessor::isConnected() const
 	return m_data->m_isConnected;
 }
 
-
 bool GRPCNetworkedPhysicsProcessor::connect()
 {
 	bool isConnected = m_data->connectGRPC();
@@ -229,14 +214,11 @@ bool GRPCNetworkedPhysicsProcessor::connect()
 void GRPCNetworkedPhysicsProcessor::disconnect()
 {
 	m_data->disconnect();
-	
 }
-
 
 void GRPCNetworkedPhysicsProcessor::setTimeOut(double timeOutInSeconds)
 {
 	m_data->m_timeOutInSeconds = timeOutInSeconds;
 }
 
-#endif //BT_ENABLE_GRPC
-
+#endif  //BT_ENABLE_GRPC

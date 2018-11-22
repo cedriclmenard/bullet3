@@ -5,29 +5,29 @@
 #include "PhysicsClientC_API.h"
 #include "PhysicsDirect.h"
 #include "plugins/b3PluginContext.h"
-
+#include "../Utils/b3BulletDefaultFileIO.h"
 #ifdef _WIN32
-    #define WIN32_LEAN_AND_MEAN
-    #define VC_EXTRALEAN
-    #include <windows.h>
+#define WIN32_LEAN_AND_MEAN
+#define VC_EXTRALEAN
+#include <windows.h>
 
-    typedef HMODULE             B3_DYNLIB_HANDLE;
+typedef HMODULE B3_DYNLIB_HANDLE;
 
-    #define B3_DYNLIB_OPEN    LoadLibraryA
-    #define B3_DYNLIB_CLOSE   FreeLibrary
-    #define B3_DYNLIB_IMPORT  GetProcAddress
+#define B3_DYNLIB_OPEN LoadLibraryA
+#define B3_DYNLIB_CLOSE FreeLibrary
+#define B3_DYNLIB_IMPORT GetProcAddress
 #else
-    #include <dlfcn.h>
+#include <dlfcn.h>
 
-    typedef void*                   B3_DYNLIB_HANDLE;
+typedef void* B3_DYNLIB_HANDLE;
 
 #ifdef B3_USE_DLMOPEN
-    #define B3_DYNLIB_OPEN(path)  dlmopen(LM_ID_NEWLM, path, RTLD_LAZY)
+#define B3_DYNLIB_OPEN(path) dlmopen(LM_ID_NEWLM, path, RTLD_LAZY)
 #else
-    #define B3_DYNLIB_OPEN(path)  dlopen(path, RTLD_NOW | RTLD_GLOBAL)
+#define B3_DYNLIB_OPEN(path) dlopen(path, RTLD_NOW | RTLD_GLOBAL)
 #endif
-    #define B3_DYNLIB_CLOSE       dlclose
-    #define B3_DYNLIB_IMPORT      dlsym
+#define B3_DYNLIB_CLOSE dlclose
+#define B3_DYNLIB_IMPORT dlsym
 #endif
 
 struct b3Plugin
@@ -47,23 +47,27 @@ struct b3Plugin
 	PFN_TICK m_processClientCommandsFunc;
 
 	PFN_GET_RENDER_INTERFACE m_getRendererFunc;
+	PFN_GET_COLLISION_INTERFACE m_getCollisionFunc;
+	PFN_GET_FILEIO_INTERFACE m_getFileIOFunc;
 
 	void* m_userPointer;
 
 	b3Plugin()
-		:m_pluginHandle(0),
-		m_ownsPluginHandle(false),
-		m_isInitialized(false),
-		m_pluginUniqueId(-1),
-		m_initFunc(0),
-		m_exitFunc(0),
-		m_executeCommandFunc(0),
-		m_preTickFunc(0),
-		m_postTickFunc(0),
-		m_processNotificationsFunc(0),
-		m_processClientCommandsFunc(0),
-		m_getRendererFunc(0),
-		m_userPointer(0)
+		: m_pluginHandle(0),
+		  m_ownsPluginHandle(false),
+		  m_isInitialized(false),
+		  m_pluginUniqueId(-1),
+		  m_initFunc(0),
+		  m_exitFunc(0),
+		  m_executeCommandFunc(0),
+		  m_preTickFunc(0),
+		  m_postTickFunc(0),
+		  m_processNotificationsFunc(0),
+		  m_processClientCommandsFunc(0),
+		  m_getRendererFunc(0),
+		  m_getCollisionFunc(0),
+		  m_getFileIOFunc(0),
+		  m_userPointer(0)
 	{
 	}
 	void clear()
@@ -81,6 +85,8 @@ struct b3Plugin
 		m_processNotificationsFunc = 0;
 		m_processClientCommandsFunc = 0;
 		m_getRendererFunc = 0;
+		m_getCollisionFunc = 0;
+		m_getFileIOFunc = 0;
 		m_userPointer = 0;
 		m_isInitialized = false;
 	}
@@ -100,11 +106,13 @@ struct b3PluginManagerInternalData
 	b3AlignedObjectArray<b3Notification> m_notifications[2];
 	int m_activeNotificationsBufferIndex;
 	int m_activeRendererPluginUid;
+	int m_activeCollisionPluginUid;
 	int m_numNotificationPlugins;
-
+	int m_activeFileIOPluginUid;
+	b3BulletDefaultFileIO m_defaultFileIO;
+	
 	b3PluginManagerInternalData()
-		:m_rpcCommandProcessorInterface(0), m_activeNotificationsBufferIndex(0), m_activeRendererPluginUid(-1),
-		m_numNotificationPlugins(0)
+		: m_rpcCommandProcessorInterface(0), m_activeNotificationsBufferIndex(0), m_activeRendererPluginUid(-1), m_activeCollisionPluginUid(-1), m_numNotificationPlugins(0), m_activeFileIOPluginUid(-1)
 	{
 	}
 };
@@ -113,8 +121,7 @@ b3PluginManager::b3PluginManager(class PhysicsCommandProcessorInterface* physSdk
 {
 	m_data = new b3PluginManagerInternalData;
 	m_data->m_rpcCommandProcessorInterface = physSdk;
-	m_data->m_physicsDirect = new PhysicsDirect(physSdk,false);
-
+	m_data->m_physicsDirect = new PhysicsDirect(physSdk, false);
 }
 
 b3PluginManager::~b3PluginManager()
@@ -136,7 +143,6 @@ b3PluginManager::~b3PluginManager()
 
 void b3PluginManager::addEvents(const struct b3VRControllerEvent* vrControllerEvents, int numVRControllerEvents, const struct b3KeyboardEvent* keyEvents, int numKeyEvents, const struct b3MouseEvent* mouseEvents, int numMouseEvents)
 {
-
 	for (int i = 0; i < numKeyEvents; i++)
 	{
 		m_data->m_keyEvents.push_back(keyEvents[i]);
@@ -161,7 +167,7 @@ void b3PluginManager::clearEvents()
 
 void b3PluginManager::addNotification(const struct b3Notification& notification)
 {
-	if (m_data->m_numNotificationPlugins>0)
+	if (m_data->m_numNotificationPlugins > 0)
 	{
 		m_data->m_notifications[m_data->m_activeNotificationsBufferIndex].push_back(notification);
 	}
@@ -174,7 +180,6 @@ int b3PluginManager::loadPlugin(const char* pluginPath, const char* postFixStr)
 	int* pluginUidPtr = m_data->m_pluginMap.find(pluginPath);
 	if (pluginUidPtr)
 	{
-		
 		//already loaded
 		pluginUniqueId = *pluginUidPtr;
 		b3PluginHandle* plugin = m_data->m_plugins.getHandle(pluginUniqueId);
@@ -182,7 +187,7 @@ int b3PluginManager::loadPlugin(const char* pluginPath, const char* postFixStr)
 		{
 			b3PluginContext context = {0};
 			context.m_userPointer = 0;
-			context.m_physClient = (b3PhysicsClientHandle) m_data->m_physicsDirect;
+			context.m_physClient = (b3PhysicsClientHandle)m_data->m_physicsDirect;
 			context.m_rpcCommandProcessorInterface = m_data->m_rpcCommandProcessorInterface;
 			int result = plugin->m_initFunc(&context);
 			plugin->m_isInitialized = true;
@@ -207,7 +212,9 @@ int b3PluginManager::loadPlugin(const char* pluginPath, const char* postFixStr)
 			std::string processNotificationsStr = std::string("processNotifications") + postFix;
 			std::string processClientCommandsStr = std::string("processClientCommands") + postFix;
 			std::string getRendererStr = std::string("getRenderInterface") + postFix;
-
+			std::string getCollisionStr = std::string("getCollisionInterface") + postFix;
+			std::string getFileIOStr = std::string("getFileIOInterface") + postFix;
+			
 			plugin->m_initFunc = (PFN_INIT)B3_DYNLIB_IMPORT(pluginHandle, initStr.c_str());
 			plugin->m_exitFunc = (PFN_EXIT)B3_DYNLIB_IMPORT(pluginHandle, exitStr.c_str());
 			plugin->m_executeCommandFunc = (PFN_EXECUTE)B3_DYNLIB_IMPORT(pluginHandle, executePluginCommandStr.c_str());
@@ -221,15 +228,16 @@ int b3PluginManager::loadPlugin(const char* pluginPath, const char* postFixStr)
 			}
 			plugin->m_processClientCommandsFunc = (PFN_TICK)B3_DYNLIB_IMPORT(pluginHandle, processClientCommandsStr.c_str());
 
-			plugin->m_getRendererFunc =  (PFN_GET_RENDER_INTERFACE)B3_DYNLIB_IMPORT(pluginHandle, getRendererStr.c_str());
-		
+			plugin->m_getRendererFunc = (PFN_GET_RENDER_INTERFACE)B3_DYNLIB_IMPORT(pluginHandle, getRendererStr.c_str());
+			plugin->m_getCollisionFunc = (PFN_GET_COLLISION_INTERFACE)B3_DYNLIB_IMPORT(pluginHandle, getCollisionStr.c_str());
+			plugin->m_getFileIOFunc = (PFN_GET_FILEIO_INTERFACE)B3_DYNLIB_IMPORT(pluginHandle, getFileIOStr.c_str());
+			
 
 			if (plugin->m_initFunc && plugin->m_exitFunc && plugin->m_executeCommandFunc)
 			{
-				
 				b3PluginContext context;
 				context.m_userPointer = plugin->m_userPointer;
-				context.m_physClient = (b3PhysicsClientHandle) m_data->m_physicsDirect;
+				context.m_physClient = (b3PhysicsClientHandle)m_data->m_physicsDirect;
 				context.m_rpcCommandProcessorInterface = m_data->m_rpcCommandProcessorInterface;
 				int version = plugin->m_initFunc(&context);
 				plugin->m_isInitialized = true;
@@ -237,7 +245,6 @@ int b3PluginManager::loadPlugin(const char* pluginPath, const char* postFixStr)
 				plugin->m_userPointer = context.m_userPointer;
 				if (version == SHARED_MEMORY_MAGIC_NUMBER)
 				{
-					
 					ok = true;
 					plugin->m_ownsPluginHandle = true;
 					plugin->m_pluginHandle = pluginHandle;
@@ -262,13 +269,11 @@ int b3PluginManager::loadPlugin(const char* pluginPath, const char* postFixStr)
 		}
 		else
 		{
-
 			b3Warning("Warning: couldn't load plugin %s\n", pluginPath);
-                        #ifdef _WIN32
-                        #else
-                            b3Warning("Error: %s\n", dlerror() );
-                        #endif
-
+#ifdef _WIN32
+#else
+			b3Warning("Error: %s\n", dlerror());
+#endif
 		}
 		if (!ok)
 		{
@@ -277,13 +282,32 @@ int b3PluginManager::loadPlugin(const char* pluginPath, const char* postFixStr)
 		}
 	}
 
-	//for now, automatically select the loaded plugin as active renderer. If wanted, we can add some 'select' mechanism.
-	if (pluginUniqueId>=0)
+	//for now, automatically select the loaded plugin as active renderer.
+	if (pluginUniqueId >= 0)
 	{
 		b3PluginHandle* plugin = m_data->m_plugins.getHandle(pluginUniqueId);
 		if (plugin && plugin->m_getRendererFunc)
 		{
 			selectPluginRenderer(pluginUniqueId);
+		}
+	}
+
+	//for now, automatically select the loaded plugin as active collision plugin.
+	if (pluginUniqueId >= 0)
+	{
+		b3PluginHandle* plugin = m_data->m_plugins.getHandle(pluginUniqueId);
+		if (plugin && plugin->m_getCollisionFunc)
+		{
+			selectCollisionPlugin(pluginUniqueId);
+		}
+	}
+	//for now, automatically select the loaded plugin as active fileIO plugin.
+	if (pluginUniqueId >= 0)
+	{
+		b3PluginHandle* plugin = m_data->m_plugins.getHandle(pluginUniqueId);
+		if (plugin && plugin->m_getFileIOFunc)
+		{
+			selectFileIOPlugin(pluginUniqueId);
 		}
 	}
 
@@ -301,7 +325,7 @@ void b3PluginManager::unloadPlugin(int pluginUniqueId)
 		}
 		b3PluginContext context = {0};
 		context.m_userPointer = plugin->m_userPointer;
-		context.m_physClient = (b3PhysicsClientHandle) m_data->m_physicsDirect;
+		context.m_physClient = (b3PhysicsClientHandle)m_data->m_physicsDirect;
 
 		if (plugin->m_isInitialized)
 		{
@@ -314,11 +338,9 @@ void b3PluginManager::unloadPlugin(int pluginUniqueId)
 	}
 }
 
-
-
 void b3PluginManager::tickPlugins(double timeStep, b3PluginManagerTickMode tickMode)
 {
-	for (int i=0;i<m_data->m_pluginMap.size();i++)
+	for (int i = 0; i < m_data->m_pluginMap.size(); i++)
 	{
 		int* pluginUidPtr = m_data->m_pluginMap.getAtIndex(i);
 		b3PluginHandle* plugin = 0;
@@ -333,7 +355,7 @@ void b3PluginManager::tickPlugins(double timeStep, b3PluginManagerTickMode tickM
 			continue;
 		}
 
-		PFN_TICK  tick = 0;
+		PFN_TICK tick = 0;
 		switch (tickMode)
 		{
 			case B3_PRE_TICK_MODE:
@@ -358,7 +380,7 @@ void b3PluginManager::tickPlugins(double timeStep, b3PluginManagerTickMode tickM
 
 		if (tick)
 		{
-			b3PluginContext context = { 0 };
+			b3PluginContext context = {0};
 			context.m_userPointer = plugin->m_userPointer;
 			context.m_physClient = (b3PhysicsClientHandle)m_data->m_physicsDirect;
 			context.m_numMouseEvents = m_data->m_mouseEvents.size();
@@ -379,7 +401,7 @@ void b3PluginManager::tickPlugins(double timeStep, b3PluginManagerTickMode tickM
 
 void b3PluginManager::reportNotifications()
 {
-	b3AlignedObjectArray<b3Notification> &notifications = m_data->m_notifications[m_data->m_activeNotificationsBufferIndex];
+	b3AlignedObjectArray<b3Notification>& notifications = m_data->m_notifications[m_data->m_activeNotificationsBufferIndex];
 	if (notifications.size() == 0)
 	{
 		return;
@@ -388,7 +410,7 @@ void b3PluginManager::reportNotifications()
 	// Swap notification buffers.
 	m_data->m_activeNotificationsBufferIndex = 1 - m_data->m_activeNotificationsBufferIndex;
 
-	for (int i=0;i<m_data->m_pluginMap.size();i++)
+	for (int i = 0; i < m_data->m_pluginMap.size(); i++)
 	{
 		int* pluginUidPtr = m_data->m_pluginMap.getAtIndex(i);
 		b3PluginHandle* plugin = 0;
@@ -403,10 +425,11 @@ void b3PluginManager::reportNotifications()
 			continue;
 		}
 
-		if (plugin->m_processNotificationsFunc) {
+		if (plugin->m_processNotificationsFunc)
+		{
 			b3PluginContext context = {0};
 			context.m_userPointer = plugin->m_userPointer;
-			context.m_physClient = (b3PhysicsClientHandle) m_data->m_physicsDirect;
+			context.m_physClient = (b3PhysicsClientHandle)m_data->m_physicsDirect;
 			context.m_numNotifications = notifications.size();
 			context.m_notifications = notifications.size() ? &notifications[0] : 0;
 			plugin->m_processNotificationsFunc(&context);
@@ -424,7 +447,7 @@ int b3PluginManager::executePluginCommand(int pluginUniqueId, const b3PluginArgu
 	{
 		b3PluginContext context = {0};
 		context.m_userPointer = plugin->m_userPointer;
-		context.m_physClient = (b3PhysicsClientHandle) m_data->m_physicsDirect;
+		context.m_physClient = (b3PhysicsClientHandle)m_data->m_physicsDirect;
 		context.m_rpcCommandProcessorInterface = m_data->m_rpcCommandProcessorInterface;
 		result = plugin->m_executeCommandFunc(&context, arguments);
 		plugin->m_userPointer = context.m_userPointer;
@@ -433,27 +456,28 @@ int b3PluginManager::executePluginCommand(int pluginUniqueId, const b3PluginArgu
 }
 
 
-int b3PluginManager::registerStaticLinkedPlugin(const char* pluginPath, PFN_INIT initFunc,PFN_EXIT exitFunc, PFN_EXECUTE executeCommandFunc, PFN_TICK preTickFunc, PFN_TICK postTickFunc, PFN_GET_RENDER_INTERFACE getRendererFunc, PFN_TICK processClientCommandsFunc, bool initPlugin)
-{
 
+int b3PluginManager::registerStaticLinkedPlugin(const char* pluginPath,  b3PluginFunctions& functions, bool initPlugin)
+{
 	b3Plugin orgPlugin;
 
 	int pluginUniqueId = m_data->m_plugins.allocHandle();
 	b3PluginHandle* pluginHandle = m_data->m_plugins.getHandle(pluginUniqueId);
 	pluginHandle->m_pluginHandle = 0;
-	pluginHandle->m_ownsPluginHandle =false;
+	pluginHandle->m_ownsPluginHandle = false;
 	pluginHandle->m_pluginUniqueId = pluginUniqueId;
-	pluginHandle->m_executeCommandFunc = executeCommandFunc;
-	pluginHandle->m_exitFunc = exitFunc;
-	pluginHandle->m_initFunc = initFunc;
-	pluginHandle->m_preTickFunc = preTickFunc;
-	pluginHandle->m_postTickFunc = postTickFunc;
-	pluginHandle->m_getRendererFunc = getRendererFunc;
-	pluginHandle->m_processClientCommandsFunc = processClientCommandsFunc;
+	pluginHandle->m_executeCommandFunc = functions.m_executeCommandFunc;
+	pluginHandle->m_exitFunc = functions.m_exitFunc;
+	pluginHandle->m_initFunc = functions.m_initFunc;
+	pluginHandle->m_preTickFunc = functions.m_preTickFunc;
+	pluginHandle->m_postTickFunc = functions.m_postTickFunc;
+	pluginHandle->m_getRendererFunc = functions.m_getRendererFunc;
+	pluginHandle->m_getCollisionFunc = functions.m_getCollisionFunc;
+	pluginHandle->m_processClientCommandsFunc = functions.m_processClientCommandsFunc;
+	pluginHandle->m_getFileIOFunc = functions.m_fileIoFunc;
 	pluginHandle->m_pluginHandle = 0;
 	pluginHandle->m_pluginPath = pluginPath;
 	pluginHandle->m_userPointer = 0;
-
 
 	if (pluginHandle->m_processNotificationsFunc)
 	{
@@ -466,7 +490,7 @@ int b3PluginManager::registerStaticLinkedPlugin(const char* pluginPath, PFN_INIT
 	{
 		b3PluginContext context = {0};
 		context.m_userPointer = 0;
-		context.m_physClient = (b3PhysicsClientHandle) m_data->m_physicsDirect;
+		context.m_physClient = (b3PhysicsClientHandle)m_data->m_physicsDirect;
 		context.m_rpcCommandProcessorInterface = m_data->m_rpcCommandProcessorInterface;
 		int result = pluginHandle->m_initFunc(&context);
 		pluginHandle->m_isInitialized = true;
@@ -484,18 +508,64 @@ UrdfRenderingInterface* b3PluginManager::getRenderInterface()
 {
 	UrdfRenderingInterface* renderer = 0;
 
-	if (m_data->m_activeRendererPluginUid>=0)
+	if (m_data->m_activeRendererPluginUid >= 0)
 	{
 		b3PluginHandle* plugin = m_data->m_plugins.getHandle(m_data->m_activeRendererPluginUid);
-		if (plugin)
+		if (plugin && plugin->m_getRendererFunc)
 		{
 			b3PluginContext context = {0};
 			context.m_userPointer = plugin->m_userPointer;
-			context.m_physClient = (b3PhysicsClientHandle) m_data->m_physicsDirect;
-
+			context.m_physClient = (b3PhysicsClientHandle)m_data->m_physicsDirect;
 			renderer = plugin->m_getRendererFunc(&context);
 		}
 	}
 	return renderer;
 }
 
+void b3PluginManager::selectFileIOPlugin(int pluginUniqueId)
+{
+	m_data->m_activeFileIOPluginUid = pluginUniqueId;
+}
+
+struct CommonFileIOInterface* b3PluginManager::getFileIOInterface()
+{
+	CommonFileIOInterface* fileIOInterface = 0;
+	if (m_data->m_activeFileIOPluginUid >= 0)
+	{
+		b3PluginHandle* plugin = m_data->m_plugins.getHandle(m_data->m_activeFileIOPluginUid);
+		if (plugin && plugin->m_getFileIOFunc)
+		{
+			b3PluginContext context = {0};
+			context.m_userPointer = plugin->m_userPointer;
+			context.m_physClient = (b3PhysicsClientHandle)m_data->m_physicsDirect;
+			fileIOInterface = plugin->m_getFileIOFunc(&context);
+		}
+	}
+	if (fileIOInterface==0)
+	{
+		return &m_data->m_defaultFileIO;
+	}
+	return fileIOInterface;
+}
+
+void b3PluginManager::selectCollisionPlugin(int pluginUniqueId)
+{
+	m_data->m_activeCollisionPluginUid = pluginUniqueId;
+}
+
+struct b3PluginCollisionInterface* b3PluginManager::getCollisionInterface()
+{
+	b3PluginCollisionInterface* collisionInterface = 0;
+	if (m_data->m_activeCollisionPluginUid >= 0)
+	{
+		b3PluginHandle* plugin = m_data->m_plugins.getHandle(m_data->m_activeCollisionPluginUid);
+		if (plugin && plugin->m_getCollisionFunc)
+		{
+			b3PluginContext context = {0};
+			context.m_userPointer = plugin->m_userPointer;
+			context.m_physClient = (b3PhysicsClientHandle)m_data->m_physicsDirect;
+			collisionInterface = plugin->m_getCollisionFunc(&context);
+		}
+	}
+	return collisionInterface;
+}
