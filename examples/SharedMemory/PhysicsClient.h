@@ -58,8 +58,6 @@ public:
     virtual void getCachedContactPointInformation(struct b3ContactInformation* contactPointData)=0;
     virtual void getCachedConvexSweepContactPointInformation(struct b3ConvexSweepContactInformation* contactPointData)=0;
 
-	virtual void getCachedContactPointInformation(struct b3ContactInformation* contactPointData) = 0;
-
 	virtual void getCachedOverlappingObjects(struct b3AABBOverlapData* overlappingObjects) = 0;
 
 	virtual void getCachedVisualShapeInformation(struct b3VisualShapeInformation* visualShapesInfo) = 0;

@@ -6901,8 +6901,13 @@ bool PhysicsServerCommandProcessor::processRequestConvexSweepContactpointInforma
                     }
                     pt.m_normalForce = srcPt.getAppliedImpulse() / m_data->m_physicsDeltaTime;
                     pt.m_sweepContactFraction = 1;
-
-                    //                                    pt.m_linearFrictionForce = srcPt.m_appliedImpulseLateral1;
+                    pt.m_linearFrictionForce1 = srcPt.m_appliedImpulseLateral1 / m_data->m_physicsDeltaTime;
+                    pt.m_linearFrictionForce2 = srcPt.m_appliedImpulseLateral2 / m_data->m_physicsDeltaTime;
+                    for (int j = 0; j < 3; j++)
+                    {
+                        pt.m_linearFrictionDirection1[j] = srcPt.m_lateralFrictionDir1[j];
+                        pt.m_linearFrictionDirection2[j] = srcPt.m_lateralFrictionDir2[j];
+                    }
                     m_data->m_cachedConvexSweepContactPoints.push_back(pt);
                 }
             }
@@ -6932,6 +6937,83 @@ bool PhysicsServerCommandProcessor::processRequestConvexSweepContactpointInforma
             btAlignedObjectArray<btCollisionObject*> setB;
             btAlignedObjectArray<int> setALinkIndex;
             btAlignedObjectArray<int> setBLinkIndex;
+
+            btCollisionObject colObA;
+            btCollisionObject colObB;
+
+            int collisionShapeA = (clientCmd.m_updateFlags & CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_COLLISION_SHAPE_A) ? clientCmd.m_requestContactPointArguments.m_collisionShapeA : -1;
+            int collisionShapeB = (clientCmd.m_updateFlags & CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_COLLISION_SHAPE_B) ? clientCmd.m_requestContactPointArguments.m_collisionShapeB : -1;
+
+            if (collisionShapeA >= 0)
+            {
+                btVector3 posA(0, 0, 0);
+                if (clientCmd.m_updateFlags & CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_COLLISION_SHAPE_POSITION_A)
+                {
+                    posA.setValue(clientCmd.m_requestConvexSweepContactPointArguments.m_collisionShapePositionA[0],
+                                  clientCmd.m_requestConvexSweepContactPointArguments.m_collisionShapePositionA[1],
+                                  clientCmd.m_requestConvexSweepContactPointArguments.m_collisionShapePositionA[2]);
+                }
+                btQuaternion ornA(0, 0, 0, 1);
+                if (clientCmd.m_updateFlags & CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_COLLISION_SHAPE_ORIENTATION_A)
+                {
+                    ornA.setValue(clientCmd.m_requestConvexSweepContactPointArguments.m_collisionShapeOrientationA[0],
+                                  clientCmd.m_requestConvexSweepContactPointArguments.m_collisionShapeOrientationA[1],
+                                  clientCmd.m_requestConvexSweepContactPointArguments.m_collisionShapeOrientationA[2],
+                                  clientCmd.m_requestConvexSweepContactPointArguments.m_collisionShapeOrientationA[3]);
+                }
+                InternalCollisionShapeHandle* handle = m_data->m_userCollisionShapeHandles.getHandle(collisionShapeA);
+
+                if (handle && handle->m_collisionShape)
+                {
+                    colObA.setCollisionShape(handle->m_collisionShape);
+                    btTransform tr;
+                    tr.setIdentity();
+                    tr.setOrigin(posA);
+                    tr.setRotation(ornA);
+                    colObA.setWorldTransform(tr);
+                    setA.push_back(&colObA);
+                    setALinkIndex.push_back(-2);
+                }
+                else
+                {
+                    b3Warning("collisionShapeA provided is not valid.");
+                }
+            }
+            if (collisionShapeB >= 0)
+            {
+                btVector3 posB(0, 0, 0);
+                if (clientCmd.m_updateFlags & CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_COLLISION_SHAPE_POSITION_B)
+                {
+                    posB.setValue(clientCmd.m_requestConvexSweepContactPointArguments.m_collisionShapePositionB[0],
+                                  clientCmd.m_requestConvexSweepContactPointArguments.m_collisionShapePositionB[1],
+                                  clientCmd.m_requestConvexSweepContactPointArguments.m_collisionShapePositionB[2]);
+                }
+                btQuaternion ornB(0, 0, 0, 1);
+                if (clientCmd.m_updateFlags & CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_COLLISION_SHAPE_ORIENTATION_B)
+                {
+                    ornB.setValue(clientCmd.m_requestConvexSweepContactPointArguments.m_collisionShapeOrientationB[0],
+                                  clientCmd.m_requestConvexSweepContactPointArguments.m_collisionShapeOrientationB[1],
+                                  clientCmd.m_requestConvexSweepContactPointArguments.m_collisionShapeOrientationB[2],
+                                  clientCmd.m_requestConvexSweepContactPointArguments.m_collisionShapeOrientationB[3]);
+                }
+
+                InternalCollisionShapeHandle* handle = m_data->m_userCollisionShapeHandles.getHandle(collisionShapeB);
+                if (handle && handle->m_collisionShape)
+                {
+                    colObB.setCollisionShape(handle->m_collisionShape);
+                    btTransform tr;
+                    tr.setIdentity();
+                    tr.setOrigin(posB);
+                    tr.setRotation(ornB);
+                    colObB.setWorldTransform(tr);
+                    setB.push_back(&colObB);
+                    setBLinkIndex.push_back(-2);
+                }
+                else
+                {
+                    b3Warning("collisionShapeB provided is not valid.");
+                }
+            }
 
             if (bodyUniqueIdA >= 0)
             {
@@ -7162,6 +7244,14 @@ bool PhysicsServerCommandProcessor::processRequestConvexSweepContactpointInforma
                                 pt.m_positionOnBInWS[j] = cp.getPositionWorldOnB()[j];
                             }
                             pt.m_normalForce = cp.getAppliedImpulse() / m_deltaTime;
+
+                            pt.m_linearFrictionForce1 = cp.m_appliedImpulseLateral1 / m_deltaTime;
+                            pt.m_linearFrictionForce2 = cp.m_appliedImpulseLateral2 / m_deltaTime;
+                            for (int j = 0; j < 3; j++)
+                            {
+                                pt.m_linearFrictionDirection1[j] = cp.m_lateralFrictionDir1[j];
+                                pt.m_linearFrictionDirection2[j] = cp.m_lateralFrictionDir2[j];
+                            }
 
                             bool sweepShapeIsFirst = (colObj0Wrap->getCollisionObject() == m_collisionObject);
                             btVector3 sweepNormalInWorld = -(sweepShapeIsFirst ? 1 : -1) * cp.m_normalWorldOnB;

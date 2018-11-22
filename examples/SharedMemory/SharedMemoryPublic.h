@@ -612,6 +612,11 @@ struct b3ConvexSweepContactPointData
     double m_normalForce;
 
     double m_sweepContactFraction;//sweep contact fraction along range [0,1] along the transformation.
+
+    double m_linearFrictionForce1;
+    double m_linearFrictionForce2;
+    double m_linearFrictionDirection1[3];
+    double m_linearFrictionDirection2[3];
 };
 
 enum

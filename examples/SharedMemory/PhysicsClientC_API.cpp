@@ -4201,6 +4201,70 @@ B3_SHARED_API void b3SetConvexSweepClosestDistanceThreshold(b3SharedMemoryComman
     command->m_requestConvexSweepContactPointArguments.m_closestDistanceThreshold = distance;
 }
 
+B3_SHARED_API void b3SetConvexSweepClosestDistanceFilterCollisionShapeA(b3SharedMemoryCommandHandle commandHandle, int collisionShapeA)
+{
+    struct SharedMemoryCommand* command = (struct SharedMemoryCommand*)commandHandle;
+    b3Assert(command);
+    b3Assert(command->m_type == CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_INFORMATION);
+    command->m_updateFlags |= CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_COLLISION_SHAPE_A;
+    command->m_requestConvexSweepContactPointArguments.m_collisionShapeA = collisionShapeA;
+}
+
+B3_SHARED_API void b3SetConvexSweepClosestDistanceFilterCollisionShapeB(b3SharedMemoryCommandHandle commandHandle, int collisionShapeB)
+{
+    struct SharedMemoryCommand* command = (struct SharedMemoryCommand*)commandHandle;
+    b3Assert(command);
+    b3Assert(command->m_type == CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_INFORMATION);
+    command->m_updateFlags |= CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_COLLISION_SHAPE_B;
+    command->m_requestConvexSweepContactPointArguments.m_collisionShapeB = collisionShapeB;
+}
+
+B3_SHARED_API void b3SetConvexSweepClosestDistanceFilterCollisionShapePositionA(b3SharedMemoryCommandHandle commandHandle, const double collisionShapePositionA[/*3*/])
+{
+    struct SharedMemoryCommand* command = (struct SharedMemoryCommand*)commandHandle;
+    b3Assert(command);
+    b3Assert(command->m_type == CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_INFORMATION);
+    command->m_updateFlags |= CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_COLLISION_SHAPE_POSITION_A;
+    command->m_requestConvexSweepContactPointArguments.m_collisionShapePositionA[0] = collisionShapePositionA[0];
+    command->m_requestConvexSweepContactPointArguments.m_collisionShapePositionA[1] = collisionShapePositionA[1];
+    command->m_requestConvexSweepContactPointArguments.m_collisionShapePositionA[2] = collisionShapePositionA[2];
+}
+
+B3_SHARED_API void b3SetConvexSweepClosestDistanceFilterCollisionShapePositionB(b3SharedMemoryCommandHandle commandHandle, const double collisionShapePositionB[/*3*/])
+{
+    struct SharedMemoryCommand* command = (struct SharedMemoryCommand*)commandHandle;
+    b3Assert(command);
+    b3Assert(command->m_type == CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_INFORMATION);
+    command->m_updateFlags |= CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_COLLISION_SHAPE_POSITION_B;
+    command->m_requestConvexSweepContactPointArguments.m_collisionShapePositionB[0] = collisionShapePositionB[0];
+    command->m_requestConvexSweepContactPointArguments.m_collisionShapePositionB[1] = collisionShapePositionB[1];
+    command->m_requestConvexSweepContactPointArguments.m_collisionShapePositionB[2] = collisionShapePositionB[2];
+}
+
+B3_SHARED_API void b3SetConvexSweepClosestDistanceFilterCollisionShapeOrientationA(b3SharedMemoryCommandHandle commandHandle, const double collisionShapeOrientationA[/*4*/])
+{
+    struct SharedMemoryCommand* command = (struct SharedMemoryCommand*)commandHandle;
+    b3Assert(command);
+    b3Assert(command->m_type == CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_INFORMATION);
+    command->m_updateFlags |= CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_COLLISION_SHAPE_ORIENTATION_A;
+    command->m_requestConvexSweepContactPointArguments.m_collisionShapeOrientationA[0] = collisionShapeOrientationA[0];
+    command->m_requestConvexSweepContactPointArguments.m_collisionShapeOrientationA[1] = collisionShapeOrientationA[1];
+    command->m_requestConvexSweepContactPointArguments.m_collisionShapeOrientationA[2] = collisionShapeOrientationA[2];
+    command->m_requestConvexSweepContactPointArguments.m_collisionShapeOrientationA[3] = collisionShapeOrientationA[3];
+}
+
+B3_SHARED_API void b3SetConvexSweepClosestDistanceFilterCollisionShapeOrientationB(b3SharedMemoryCommandHandle commandHandle, const double collisionShapeOrientationB[/*4*/])
+{
+    struct SharedMemoryCommand* command = (struct SharedMemoryCommand*)commandHandle;
+    b3Assert(command);
+    b3Assert(command->m_type == CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_INFORMATION);
+    command->m_updateFlags |= CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_COLLISION_SHAPE_ORIENTATION_B;
+    command->m_requestConvexSweepContactPointArguments.m_collisionShapeOrientationB[0] = collisionShapeOrientationB[0];
+    command->m_requestConvexSweepContactPointArguments.m_collisionShapeOrientationB[1] = collisionShapeOrientationB[1];
+    command->m_requestConvexSweepContactPointArguments.m_collisionShapeOrientationB[2] = collisionShapeOrientationB[2];
+    command->m_requestConvexSweepContactPointArguments.m_collisionShapeOrientationB[3] = collisionShapeOrientationB[3];
+}
+
 ///get all the bodies that touch a given axis aligned bounding box specified in world space (min and max coordinates)
 B3_SHARED_API b3SharedMemoryCommandHandle b3InitAABBOverlapQuery(b3PhysicsClientHandle physClient, const double aabbMin[3], const double aabbMax[3])
 {

@@ -9931,6 +9931,10 @@ static PyObject* MyConvertConvexSweepContactPoint(struct b3ConvexSweepContactInf
      is distance.
      10		double m_sweepContactFraction;
      11		double m_normalForce;
+     12     double m_linearFrictionForce1;
+     13     double double m_linearFrictionDirection1[3];
+     14     double m_linearFrictionForce2;
+     15     double double m_linearFrictionDirection2[3];
 
      */
 
@@ -9939,7 +9943,7 @@ static PyObject* MyConvertConvexSweepContactPoint(struct b3ConvexSweepContactInf
     PyObject* pyResultList = PyTuple_New(contactPointPtr->m_numContactPoints);
     for (i = 0; i < contactPointPtr->m_numContactPoints; i++)
     {
-        PyObject* contactObList = PyTuple_New(12);  // see above 11 fields
+        PyObject* contactObList = PyTuple_New(16);  // see above 15 fields
         PyObject* item;
         item =
             PyInt_FromLong(contactPointPtr->m_contactPointData[i].m_contactFlags);
@@ -10029,6 +10033,44 @@ static PyObject* MyConvertConvexSweepContactPoint(struct b3ConvexSweepContactInf
             contactPointPtr->m_contactPointData[i].m_normalForce);
         PyTuple_SetItem(contactObList, 11, item);
 
+        item = PyFloat_FromDouble(
+            contactPointPtr->m_contactPointData[i].m_linearFrictionForce1);
+        PyTuple_SetItem(contactObList, 12, item);
+
+        {
+            PyObject* posAObj = PyTuple_New(3);
+
+            item = PyFloat_FromDouble(
+                contactPointPtr->m_contactPointData[i].m_linearFrictionDirection1[0]);
+            PyTuple_SetItem(posAObj, 0, item);
+            item = PyFloat_FromDouble(
+                contactPointPtr->m_contactPointData[i].m_linearFrictionDirection1[1]);
+            PyTuple_SetItem(posAObj, 1, item);
+            item = PyFloat_FromDouble(
+                contactPointPtr->m_contactPointData[i].m_linearFrictionDirection1[2]);
+            PyTuple_SetItem(posAObj, 2, item);
+            PyTuple_SetItem(contactObList, 13, posAObj);
+        }
+
+        item = PyFloat_FromDouble(
+            contactPointPtr->m_contactPointData[i].m_linearFrictionForce2);
+        PyTuple_SetItem(contactObList, 14, item);
+
+        {
+            PyObject* posAObj = PyTuple_New(3);
+
+            item = PyFloat_FromDouble(
+                contactPointPtr->m_contactPointData[i].m_linearFrictionDirection2[0]);
+            PyTuple_SetItem(posAObj, 0, item);
+            item = PyFloat_FromDouble(
+                contactPointPtr->m_contactPointData[i].m_linearFrictionDirection2[1]);
+            PyTuple_SetItem(posAObj, 1, item);
+            item = PyFloat_FromDouble(
+                contactPointPtr->m_contactPointData[i].m_linearFrictionDirection2[2]);
+            PyTuple_SetItem(posAObj, 2, item);
+            PyTuple_SetItem(contactObList, 15, posAObj);
+        }
+
         PyTuple_SetItem(pyResultList, i, contactObList);
     }
     return pyResultList;
@@ -10052,6 +10094,19 @@ static PyObject* pybullet_getConvexSweepClosestPoints(PyObject* self, PyObject* 
 
     double distanceThreshold = 0.f;
 
+    int collisionShapeA = -1;
+    int collisionShapeB = -1;
+
+    PyObject* collisionShapePositionAObj = 0;
+    PyObject* collisionShapeOrientationAObj = 0;
+    double collisionShapePositionA[3] = {0, 0, 0};
+    double collisionShapeOrientationA[4] = {0, 0, 0, 1};
+    PyObject* collisionShapePositionBObj = 0;
+    PyObject* collisionShapeOrientationBObj = 0;
+    double collisionShapePositionB[3] = {0, 0, 0};
+    double collisionShapeOrientationB[4] = {0, 0, 0, 1};
+
+
     b3SharedMemoryCommandHandle commandHandle;
     struct b3ConvexSweepContactInformation contactPointData;
     b3SharedMemoryStatusHandle statusHandle;
@@ -10059,10 +10114,15 @@ static PyObject* pybullet_getConvexSweepClosestPoints(PyObject* self, PyObject* 
     int physicsClientId = 0;
     b3PhysicsClientHandle sm = 0;
 
-    static char* kwlist[] = {"bodyA", "bodyB", "distance", "bodyAfromPosition", "bodyAfromOrientation", "bodyAtoPosition", "bodyAtoOrientation", "linkIndexA", "linkIndexB", "physicsClientId", NULL};
+    static char* kwlist[] = {"bodyA", "bodyB", "distance", "bodyAfromPosition", "bodyAfromOrientation", "bodyAtoPosition", "bodyAtoOrientation", "linkIndexA", "linkIndexB", "collisionShapeA", "collisionShapeB", "collisionShapePositionA", "collisionShapePositionB", "collisionShapeOrientationA", "collisionShapeOrientationB", "physicsClientId", NULL};
 
     if (!PyArg_ParseTupleAndKeywords(args, keywds, "iidOOOO|iii", kwlist,
-                                     &bodyUniqueIdA, &bodyUniqueIdB, &distanceThreshold, &bodyAfromPosObj, &bodyAfromOrnObj, &bodyAtoPosObj, &bodyAtoOrnObj, &linkIndexA, &linkIndexB, &physicsClientId))
+                                     &bodyUniqueIdA, &bodyUniqueIdB, &distanceThreshold, &bodyAfromPosObj, &bodyAfromOrnObj,
+                                     &bodyAtoPosObj, &bodyAtoOrnObj, &linkIndexA, &linkIndexB,
+                                     &collisionShapeA, &collisionShapeB,
+                                     &collisionShapePositionAObj, &collisionShapePositionBObj,
+                                     &collisionShapeOrientationA, &collisionShapeOrientationBObj,
+                                     &physicsClientId))
         return NULL;
 
     sm = getPhysicsClient(physicsClientId);
@@ -10092,10 +10152,15 @@ static PyObject* pybullet_getConvexSweepClosestPoints(PyObject* self, PyObject* 
                                                             bodyAfromOrn[0], bodyAfromOrn[1], bodyAfromOrn[2], bodyAfromOrn[3],
                                                             bodyAtoPos[0], bodyAtoPos[1], bodyAtoPos[2],
                                                             bodyAtoOrn[0], bodyAtoOrn[1], bodyAtoOrn[2], bodyAtoOrn[3]);
-    b3SetConvexSweepClosestDistanceFilterBodyA(commandHandle, bodyUniqueIdA);
-    b3SetConvexSweepClosestDistanceFilterBodyB(commandHandle, bodyUniqueIdB);
+    if (bodyUniqueIdA >= 0)
+    {
+        b3SetConvexSweepClosestDistanceFilterBodyA(commandHandle, bodyUniqueIdA);
+    }
+    if (bodyUniqueIdB >= 0)
+    {
+        b3SetConvexSweepClosestDistanceFilterBodyB(commandHandle, bodyUniqueIdB);
+    }
     b3SetConvexSweepClosestDistanceThreshold(commandHandle, distanceThreshold);
-
     if (linkIndexA >= -1)
     {
         b3SetConvexSweepClosestDistanceFilterLinkA(commandHandle, linkIndexA);
@@ -10103,6 +10168,34 @@ static PyObject* pybullet_getConvexSweepClosestPoints(PyObject* self, PyObject* 
     if (linkIndexB >= -1)
     {
         b3SetConvexSweepClosestDistanceFilterLinkB(commandHandle, linkIndexB);
+    }
+    if (collisionShapeA >= 0)
+    {
+        b3SetClosestDistanceFilterCollisionShapeA(commandHandle, collisionShapeA);
+    }
+    if (collisionShapeB >= 0)
+    {
+        b3SetClosestDistanceFilterCollisionShapeB(commandHandle, collisionShapeB);
+    }
+    if (collisionShapePositionAObj)
+    {
+        pybullet_internalSetVectord(collisionShapePositionAObj, collisionShapePositionA);
+        b3SetClosestDistanceFilterCollisionShapePositionA(commandHandle, collisionShapePositionA);
+    }
+    if (collisionShapePositionBObj)
+    {
+        pybullet_internalSetVectord(collisionShapePositionBObj, collisionShapePositionB);
+        b3SetClosestDistanceFilterCollisionShapePositionB(commandHandle, collisionShapePositionB);
+    }
+    if (collisionShapeOrientationAObj)
+    {
+        pybullet_internalSetVector4d(collisionShapeOrientationAObj, collisionShapeOrientationA);
+        b3SetClosestDistanceFilterCollisionShapeOrientationA(commandHandle, collisionShapeOrientationA);
+    }
+    if (collisionShapeOrientationBObj)
+    {
+        pybullet_internalSetVector4d(collisionShapeOrientationBObj, collisionShapeOrientationB);
+        b3SetClosestDistanceFilterCollisionShapeOrientationB(commandHandle, collisionShapeOrientationB);
     }
 
     statusHandle = b3SubmitClientCommandAndWaitStatus(sm, commandHandle);
