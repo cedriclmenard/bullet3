@@ -117,6 +117,9 @@ enum EnumSharedMemoryClientCommand
 	CMD_REQUEST_MESH_DATA,
 	
 	CMD_PERFORM_COLLISION_DETECTION,
+
+    CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_INFORMATION,
+
 	//don't go beyond this command!
 	CMD_MAX_CLIENT_COMMANDS,
 };
@@ -241,6 +244,9 @@ enum EnumSharedMemoryServerStatus
 	CMD_REQUEST_MESH_DATA_FAILED,
 
 	CMD_PERFORM_COLLISION_DETECTION_COMPLETED,
+    
+	CMD_CONVEX_SWEEP_CONTACT_POINT_INFORMATION_COMPLETED,
+    CMD_CONVEX_SWEEP_CONTACT_POINT_INFORMATION_FAILED,
 	//don't go beyond 'CMD_MAX_SERVER_COMMANDS!
 	CMD_MAX_SERVER_COMMANDS
 };
@@ -692,12 +698,41 @@ struct b3ContactPointData
 	double m_linearFrictionDirection2[3];
 };
 
+struct b3ConvexSweepContactPointData
+{
+//todo: expose some contact flags, such as telling which fields below are valid
+    int m_contactFlags;
+    int m_bodyUniqueIdA;
+    int m_bodyUniqueIdB;
+    int m_linkIndexA;
+    int m_linkIndexB;
+    double m_positionOnAInWS[3];//contact point location on object A(t), in world space coordinates
+    double m_positionOnAInWS1[3];//contact point location on object A(t+1), in world space coordinates
+    double m_positionOnBInWS[3];//contact point location on object B, in world space coordinates
+    double m_contactNormalOnBInWS[3];//the separating contact normal, pointing from object B towards object A
+    double m_contactDistance;//negative number is penetration, positive is distance.
+
+    double m_normalForce;
+
+    double m_sweepContactFraction;//sweep contact fraction along range [0,1] along the transformation.
+
+    double m_linearFrictionForce1;
+    double m_linearFrictionForce2;
+    double m_linearFrictionDirection1[3];
+    double m_linearFrictionDirection2[3];
+};
+
 enum
 {
 	CONTACT_QUERY_MODE_REPORT_EXISTING_CONTACT_POINTS = 0,
 	CONTACT_QUERY_MODE_COMPUTE_CLOSEST_POINTS = 1,
 };
 
+enum
+{
+    CONVEX_SWEEP_CONTACT_QUERY_MODE_REPORT_EXISTING_CONTACT_POINTS = 0,
+    CONVEX_SWEEP_CONTACT_QUERY_MODE_COMPUTE_CLOSEST_POINTS = 1,
+};
 enum b3StateLoggingType
 {
 	STATE_LOGGING_MINITAUR = 0,
@@ -716,6 +751,12 @@ struct b3ContactInformation
 {
 	int m_numContactPoints;
 	struct b3ContactPointData* m_contactPointData;
+};
+
+struct b3ConvexSweepContactInformation
+{
+    int m_numContactPoints;
+    struct b3ConvexSweepContactPointData* m_contactPointData;
 };
 
 struct b3RayData

@@ -18,6 +18,8 @@ protected:
 
 	bool processContactPointData(const struct SharedMemoryCommand& orgCommand);
 
+    bool processConvexSweepContactPointData(const struct SharedMemoryCommand& orgCommand);
+
 	bool processOverlappingObjects(const struct SharedMemoryCommand& orgCommand);
 
 	bool processVisualShapeData(const struct SharedMemoryCommand& orgCommand);
@@ -95,6 +97,7 @@ public:
 	virtual void getCachedCameraImage(b3CameraImageData* cameraData);
 
 	virtual void getCachedContactPointInformation(struct b3ContactInformation* contactPointData);
+    virtual void getCachedConvexSweepContactPointInformation(struct b3ConvexSweepContactInformation* contactPointData);
 
 	virtual void getCachedOverlappingObjects(struct b3AABBOverlapData* overlappingObjects);
 

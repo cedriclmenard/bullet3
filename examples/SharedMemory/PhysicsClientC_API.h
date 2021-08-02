@@ -331,6 +331,40 @@ extern "C"
 	B3_SHARED_API b3SharedMemoryCommandHandle b3InitLoadTexture(b3PhysicsClientHandle physClient, const char* filename);
 	B3_SHARED_API int b3GetStatusTextureUniqueId(b3SharedMemoryStatusHandle statusHandle);
 
+    ///request a convex hull swept contact point information
+    B3_SHARED_API	b3SharedMemoryCommandHandle b3InitRequestConvexSweepContactPointInformation(b3PhysicsClientHandle physClient, double bodyAFromPosWorldX,
+                                                                                                double bodyAFromPosWorldY, double bodyAFromPosWorldZ,
+                                                                                                double bodyAFromOrnWorldX,double bodyAFromOrnWorldY, double bodyAFromOrnWorldZ, double bodyAFromOrnWorldW,
+                                                                                                double bodyAToPosWorldX, double bodyAToPosWorldY, double bodyAToPosWorldZ,
+                                                                                                double bodyAToOrnWorldX,double bodyAToOrnWorldY, double bodyAToOrnWorldZ, double bodyAToOrnWorldW);
+    B3_SHARED_API	void b3SetConvexSweepContactFilterBodyA(b3SharedMemoryCommandHandle commandHandle, int bodyUniqueIdA);
+    B3_SHARED_API	void b3SetConvexSweepContactFilterBodyB(b3SharedMemoryCommandHandle commandHandle, int bodyUniqueIdB);
+    B3_SHARED_API	void b3SetConvexSweepContactFilterLinkA(b3SharedMemoryCommandHandle commandHandle, int linkIndexA);
+    B3_SHARED_API	void b3SetConvexSweepContactFilterLinkB(b3SharedMemoryCommandHandle commandHandle, int linkIndexB);
+    B3_SHARED_API	void b3GetConvexSweepContactPointInformation(b3PhysicsClientHandle physClient, struct b3ConvexSweepContactInformation* contactPointData);
+
+    ///compute the closest points between convex hull swept by moving body and a stationary body
+    B3_SHARED_API	b3SharedMemoryCommandHandle b3InitConvexSweepClosestDistanceQuery(b3PhysicsClientHandle physClient, double bodyAFromPosWorldX,
+                                                                                      double bodyAFromPosWorldY, double bodyAFromPosWorldZ,
+                                                                                      double bodyAFromOrnWorldX,double bodyAFromOrnWorldY, double bodyAFromOrnWorldZ, double bodyAFromOrnWorldW,
+                                                                                      double bodyAToPosWorldX, double bodyAToPosWorldY, double bodyAToPosWorldZ,
+                                                                                      double bodyAToOrnWorldX,double bodyAToOrnWorldY, double bodyAToOrnWorldZ, double bodyAToOrnWorldW);
+    B3_SHARED_API	void b3SetConvexSweepClosestDistanceFilterBodyA(b3SharedMemoryCommandHandle commandHandle, int bodyUniqueIdA);
+    B3_SHARED_API	void b3SetConvexSweepClosestDistanceFilterLinkA(b3SharedMemoryCommandHandle commandHandle, int linkIndexA);
+    B3_SHARED_API	void b3SetConvexSweepClosestDistanceFilterBodyB(b3SharedMemoryCommandHandle commandHandle, int bodyUniqueIdB);
+    B3_SHARED_API	void b3SetConvexSweepClosestDistanceFilterLinkB(b3SharedMemoryCommandHandle commandHandle, int linkIndexB);
+    B3_SHARED_API	void b3SetConvexSweepClosestDistanceThreshold(b3SharedMemoryCommandHandle commandHandle, double distance);
+
+    B3_SHARED_API void b3SetConvexSweepClosestDistanceFilterCollisionShapeA(b3SharedMemoryCommandHandle commandHandle, int collisionShapeA);
+    B3_SHARED_API void b3SetConvexSweepClosestDistanceFilterCollisionShapeB(b3SharedMemoryCommandHandle commandHandle, int collisionShapeB);
+    B3_SHARED_API void b3SetConvexSweepClosestDistanceFilterCollisionShapePositionA(b3SharedMemoryCommandHandle commandHandle, const double collisionShapePositionA[/*3*/]);
+    B3_SHARED_API void b3SetConvexSweepClosestDistanceFilterCollisionShapePositionB(b3SharedMemoryCommandHandle commandHandle, const double collisionShapePositionB[/*3*/]);
+    B3_SHARED_API void b3SetConvexSweepClosestDistanceFilterCollisionShapeOrientationA(b3SharedMemoryCommandHandle commandHandle, const double collisionShapeOrientationA[/*4*/]);
+    B3_SHARED_API void b3SetConvexSweepClosestDistanceFilterCollisionShapeOrientationB(b3SharedMemoryCommandHandle commandHandle, const double collisionShapeOrientationB[/*4*/]);
+
+
+    B3_SHARED_API	void b3GetConvexSweepClosestPointInformation(b3PhysicsClientHandle physClient, struct b3ConvexSweepContactInformation* contactPointInfo);
+
 	B3_SHARED_API b3SharedMemoryCommandHandle b3CreateChangeTextureCommandInit(b3PhysicsClientHandle physClient, int textureUniqueId, int width, int height, const char* rgbPixels);
 
 	B3_SHARED_API b3SharedMemoryCommandHandle b3InitUpdateVisualShape(b3PhysicsClientHandle physClient, int bodyUniqueId, int jointIndex, int shapeIndex, int textureUniqueId);

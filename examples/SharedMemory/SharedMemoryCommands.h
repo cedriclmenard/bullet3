@@ -308,6 +308,21 @@ enum EnumRequestContactDataUpdateFlags
 
 };
 
+enum EnumRequestConvexSweepContactDataUpdateFlags
+{
+    CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_QUERY_MODE=1,
+    CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_CLOSEST_DISTANCE_THRESHOLD=2,
+    CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_LINK_INDEX_A_FILTER = 4,
+    CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_LINK_INDEX_B_FILTER = 8,
+
+    CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_COLLISION_SHAPE_A = 16,
+    CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_COLLISION_SHAPE_B = 32,
+    CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_COLLISION_SHAPE_POSITION_A = 64,
+    CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_COLLISION_SHAPE_POSITION_B = 128,
+    CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_COLLISION_SHAPE_ORIENTATION_A = 256,
+    CMD_REQUEST_CONVEX_SWEEP_CONTACT_POINT_HAS_COLLISION_SHAPE_ORIENTATION_B = 512,
+};
+
 struct RequestRaycastIntersections
 {
 	// The number of threads that Bullet may use to perform the ray casts.
@@ -352,6 +367,29 @@ struct RequestContactDataArgs
 	double m_collisionShapeOrientationB[4];
 
 	int m_mode;
+};
+
+#define MAX_CONVEX_SWEEP_CONTACT_BATCH_SIZE 256
+struct RequestConvexSweepContactDataArgs
+{
+    int m_startingContactPointIndex;
+    int m_objectAIndexFilter;
+    int m_objectBIndexFilter;
+    int m_linkIndexAIndexFilter;
+    int m_linkIndexBIndexFilter;
+    double m_closestDistanceThreshold;
+    int m_mode;
+    double m_bodyAfromPosition[MAX_CONVEX_SWEEP_CONTACT_BATCH_SIZE][3];
+    double m_bodyAfromOrientation[MAX_CONVEX_SWEEP_CONTACT_BATCH_SIZE][4];
+    double m_bodyAtoPosition[MAX_CONVEX_SWEEP_CONTACT_BATCH_SIZE][3];
+    double m_bodyAtoOrientation[MAX_CONVEX_SWEEP_CONTACT_BATCH_SIZE][4];
+
+    int m_collisionShapeA;
+    int m_collisionShapeB;
+    double m_collisionShapePositionA[3];
+    double m_collisionShapePositionB[3];
+    double m_collisionShapeOrientationA[4];
+    double m_collisionShapeOrientationB[4];
 };
 
 struct RequestOverlappingObjectsArgs
@@ -1182,6 +1220,7 @@ struct SharedMemoryCommand
 		struct CalculateMassMatrixArgs m_calculateMassMatrixArguments;
 		struct b3UserConstraint m_userConstraintArguments;
 		struct RequestContactDataArgs m_requestContactPointArguments;
+        struct RequestConvexSweepContactDataArgs m_requestConvexSweepContactPointArguments;
 		struct RequestOverlappingObjectsArgs m_requestOverlappingObjectsArgs;
 		struct RequestVisualShapeDataArgs m_requestVisualShapeDataArguments;
 		struct UpdateVisualShapeDataArgs m_updateVisualShapeDataArguments;
@@ -1222,6 +1261,13 @@ struct SendContactDataArgs
 	int m_startingContactPointIndex;
 	int m_numContactPointsCopied;
 	int m_numRemainingContactPoints;
+};
+
+struct SendConvexSweepContactDataArgs
+{
+    int m_startingContactPointIndex;
+    int m_numContactPointsCopied;
+    int m_numRemainingContactPoints;
 };
 
 struct SendOverlappingObjectsArgs
@@ -1285,7 +1331,8 @@ struct SharedMemoryStatus
 		struct UserDataRequestArgs m_removeUserDataResponseArgs;
 		struct b3ForwardDynamicsAnalyticsArgs m_forwardDynamicsAnalyticsArgs;
 		struct b3SendMeshDataArgs m_sendMeshDataArgs;
-	};
+        struct SendConvexSweepContactDataArgs m_sendConvexSweepContactPointArgs;	
+    };
 };
 
 typedef struct SharedMemoryStatus SharedMemoryStatus_t;
