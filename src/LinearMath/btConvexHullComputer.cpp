@@ -105,7 +105,7 @@ public:
 
 		Point64 cross(const Point32& b) const
 		{
-			return Point64(y * b.z - z * b.y, z * b.x - x * b.z, x * b.y - y * b.x);
+			return Point64(((int64_t)y) * b.z - ((int64_t)z) * b.y, ((int64_t)z) * b.x - ((int64_t)x) * b.z, ((int64_t)x) * b.y - ((int64_t)y) * b.x);
 		}
 
 		Point64 cross(const Point64& b) const
@@ -115,7 +115,7 @@ public:
 
 		int64_t dot(const Point32& b) const
 		{
-			return x * b.x + y * b.y + z * b.z;
+			return ((int64_t)x) * b.x + ((int64_t)y) * b.y + ((int64_t)z) * b.z;
 		}
 
 		int64_t dot(const Point64& b) const
@@ -926,7 +926,7 @@ int btConvexHullInternal::Rational64::compare(const Rational64& b) const
 		"decb %%bh\n\t"        // now bx=0x0000 if difference is zero, 0xff01 if it is negative, 0x0001 if it is positive (i.e., same sign as difference)
 		"shll $16, %%ebx\n\t"  // ebx has same sign as difference
 		: "=&b"(result), [tmp] "=&r"(tmp), "=a"(dummy)
-		: "a"(denominator), [bn] "g"(b.numerator), [tn] "g"(numerator), [bd] "g"(b.denominator)
+		: "a"(m_denominator), [bn] "g"(b.m_numerator), [tn] "g"(m_numerator), [bd] "g"(b.m_denominator)
 		: "%rdx", "cc");
 	return result ? result ^ sign  // if sign is +1, only bit 0 of result is inverted, which does not change the sign of result (and cannot result in zero)
 								   // if sign is -1, all bits of result are inverted, which changes the sign of result (and again cannot result in zero)
@@ -2673,6 +2673,7 @@ btScalar btConvexHullComputer::compute(const void* coords, bool doubleCoords, in
 	}
 
 	vertices.resize(0);
+	original_vertex_index.resize(0);
 	edges.resize(0);
 	faces.resize(0);
 
@@ -2683,6 +2684,7 @@ btScalar btConvexHullComputer::compute(const void* coords, bool doubleCoords, in
 	{
 		btConvexHullInternal::Vertex* v = oldVertices[copied];
 		vertices.push_back(hull.getCoordinates(v));
+		original_vertex_index.push_back(v->point.index);
 		btConvexHullInternal::Edge* firstEdge = v->edges;
 		if (firstEdge)
 		{

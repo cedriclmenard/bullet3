@@ -264,7 +264,8 @@ enum bt6DofFlags2
 	BT_6DOF_FLAGS_CFM_STOP2 = 1,
 	BT_6DOF_FLAGS_ERP_STOP2 = 2,
 	BT_6DOF_FLAGS_CFM_MOTO2 = 4,
-	BT_6DOF_FLAGS_ERP_MOTO2 = 8
+	BT_6DOF_FLAGS_ERP_MOTO2 = 8,
+	BT_6DOF_FLAGS_USE_INFINITE_ERROR = (1<<16)
 };
 #define BT_6DOF_FLAGS_AXIS_SHIFT2 4  // bits per axis
 
@@ -294,7 +295,7 @@ protected:
 	bool m_hasStaticBody;
 	int m_flags;
 
-	btGeneric6DofSpring2Constraint& operator=(btGeneric6DofSpring2Constraint&)
+	btGeneric6DofSpring2Constraint& operator=(const btGeneric6DofSpring2Constraint&)
 	{
 		btAssert(0);
 		return *this;
